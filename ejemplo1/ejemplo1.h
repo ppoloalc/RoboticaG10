@@ -3,6 +3,8 @@
 
 #include <QtGui>
 #include "ui_counterDlg.h"
+#include <QTimer>
+#include <QSlider>
 
 class ejemplo1 : public QWidget, public Ui_Counter
 {
@@ -12,6 +14,13 @@ class ejemplo1 : public QWidget, public Ui_Counter
 
     public slots:
         void doButton();
+        void count();
+        void doSlider();
+
+    private:
+        QTimer timer;
+        QSlider slider;
+
 };
 
 #endif // ejemplo1_H

@@ -35,44 +35,50 @@
      <height>91</height>
     </rect>
    </property>
+   <property name="sizeIncrement">
+    <size>
+     <width>1</width>
+     <height>1</height>
+    </size>
+   </property>
   </widget>
   <widget class="QSlider" name="horizontalSlider">
    <property name="geometry">
     <rect>
-     <x>60</x>
+     <x>50</x>
      <y>380</y>
-     <width>160</width>
-     <height>16</height>
+     <width>181</width>
+     <height>21</height>
     </rect>
+   </property>
+   <property name="maximum">
+    <number>1000</number>
    </property>
    <property name="orientation">
     <enum>Qt::Horizontal</enum>
    </property>
   </widget>
-  <widget class="QPushButton" name="pushButton">
+  <widget class="QLCDNumber" name="lcdNumber_2">
    <property name="geometry">
     <rect>
      <x>90</x>
-     <y>280</y>
-     <width>121</width>
-     <height>61</height>
+     <y>340</y>
+     <width>91</width>
+     <height>31</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButton">
+   <property name="geometry">
+    <rect>
+     <x>290</x>
+     <y>260</y>
+     <width>251</width>
+     <height>81</height>
     </rect>
    </property>
    <property name="text">
     <string>RESET</string>
-   </property>
-  </widget>
-  <widget class="QPushButton" name="pushButton_2">
-   <property name="geometry">
-    <rect>
-     <x>290</x>
-     <y>350</y>
-     <width>261</width>
-     <height>71</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>START</string>
    </property>
   </widget>
  </widget>

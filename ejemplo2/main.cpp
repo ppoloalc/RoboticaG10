@@ -1,10 +1,13 @@
 #include <algorithm>
 #include <iostream>
 #include <vector>
+#include <chrono>
+#include <thread>
 // TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 int main()
 {
 //Punto 4.a
+    auto start = std::chrono::high_resolution_clock::now();
 
     auto sort = [](std::tuple<std::string, int> t1, std::tuple<std::string, int> t2)
     {
@@ -40,6 +43,23 @@ int main()
     int d = 90;
     printf("Degrees: %i\n", d);
     printf("Radians: %f\n", degstorads(d));
+
+// Punto 5
+    int a = 5;
+    int&& r = std::move(a);
+
+//Punto 7
+
+
+
+    auto end = std::chrono::high_resolution_clock::now();
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    printf("%d", ms);
+
+
+//Punto 8
+
+    //std::thread t3([](int n) {std::cout << n << std::endl;},3);
 
 return 0;
 }

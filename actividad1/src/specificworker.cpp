@@ -18,6 +18,8 @@
  */
 #include "specificworker.h"
 
+#include <ranges>
+
 SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, bool startup_check) : GenericWorker(configLoader, tprx)
 {
 	this->startup_check_flag = startup_check;
@@ -80,20 +82,34 @@ void SpecificWorker::initialize()
 
 void SpecificWorker::compute()
 {
-    std::cout << "Compute worker" << std::endl;
-	//computeCODE
-	//try
-	//{
-	//  camera_proxy->getYImage(0,img, cState, bState);
-    //    if (img.empty())
-    //        emit goToEmergency()
-	//  memcpy(image_gray.data, &img[0], m_width*m_height*sizeof(uchar));
-	//  searchTags(image_gray);
-	//}
-	//catch(const Ice::Exception &e)
-	//{
-	//  std::cout << "Error reading from Camera" << e << std::endl;
-	//}
+	try
+	{
+		auto data = lidar3d_proxy->getLidarDataWithThreshold2d("helios", 10000, 1);
+		qInfo() << data.points.size();
+
+		// Usar std::view, std::transform, std::min
+		//data.points.at(0).r;
+
+		// auto r_min = std::views::filter(data.points, [](auto &t )
+		// {
+		// 	return t.r;
+		// }) | std::views::transform([this](float r1, float r2){return std::min_element(r1, r2);});
+
+		//std::transform(data.points.begin(), data.points.end(), ,)
+
+		for (int i = 0; i < data.points.size(); i++)
+		{
+
+			while ()
+			{
+
+			}
+		}
+
+	}
+    catch (const Ice::Exception& e){ std::cout << e << " " << "Conexion con laser"<< std::endl; }
+
+
 }
 
 

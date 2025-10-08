@@ -19,6 +19,7 @@
 #include "specificworker.h"
 
 #include <ranges>
+#include <cppitertools/groupby.hpp>
 
 SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, bool startup_check) : GenericWorker(configLoader, tprx)
 {
@@ -74,7 +75,17 @@ void SpecificWorker::initialize()
 
     /////////GET PARAMS, OPEND DEVICES....////////
     //int period = configLoader.get<int>("Period.Compute") //NOTE: If you want get period of compute use getPeriod("compute")
-    //std::string device = configLoader.get<std::string>("Device.name") 
+    //std::string device = configLoader.get<std::string>("Device.name")
+
+	this->dimensions = QRectF(-6000, -3000, 12000, 6000);
+	viewer = new AbstractGraphicViewer(this->frame, this->dimensions);
+	this->resize(900,450);
+	viewer->show();
+	const auto rob = viewer->add_robot(ROBOT_LENGTH, ROBOT_LENGTH, 0, 190, QColor("Blue"));
+	robot_polygon = std::get<0>(rob);
+
+	connect(viewer, &AbstractGraphicViewer::new_mouse_coordinates, this, &SpecificWorker::new_target_slot);
+
 
 }
 
@@ -84,32 +95,78 @@ void SpecificWorker::compute()
 {
 	try
 	{
-		auto data = lidar3d_proxy->getLidarDataWithThreshold2d("helios", 10000, 1);
-		qInfo() << data.points.size();
+		// filtrar lidar
+		// detectar minimo lidar filtrado
+		// decidimos si return o parar y girar en base a la lectura reciente del lidar
 
-		// Usar std::view, std::transform, std::min
-		//data.points.at(0).r;
+		auto data = lidar3d_proxy->getLidarDataWithThreshold2d("helios", 15000, 1);
 
-		// auto r_min = std::views::filter(data.points, [](auto &t )
-		// {
-		// 	return t.r;
-		// }) | std::views::transform([this](float r1, float r2){return std::min_element(r1, r2);});
+		if (data.points.empty()){qWarning()<<"No points received"; return;}
 
-		//std::transform(data.points.begin(), data.points.end(), ,)
+		const auto filter_data = filter_min_distance_cppitertools(data.points);
 
-		for (int i = 0; i < data.points.size(); i++)
+
+		if (filter_data.has_value())
 		{
-
-			while ()
-			{
-
-			}
+			draw_lidar(filter_data.value(), &viewer->scene);
 		}
+
 
 	}
     catch (const Ice::Exception& e){ std::cout << e << " " << "Conexion con laser"<< std::endl; }
 
 
+//Si el menor valor de la parte central de filter.data < 500 la velocidad de avance es 0 y giro 1
+	//else avance min y giro 0
+	//Hacer con iterador min element
+
+
+
+
+
+
+try
+{
+	omnirobot_proxy->setSpeedBase(1000, 1000, 1);
+}
+	catch (const Ice::Exception& e){ std::cout << e << " " << "Establecer velocidad"<< std::endl; }
+
+}
+
+std::optional<RoboCompLidar3D::TPoints> SpecificWorker::filter_min_distance_cppitertools(const RoboCompLidar3D::TPoints& points)
+{
+	if (points.empty()){return{};}
+	RoboCompLidar3D::TPoints result;
+	result.reserve(points.size());
+	for (auto&& [angle, group]:iter::groupby(points, [](const auto &p)
+		{float multiplier = std::pow(10.0f, 2); return std::floor(p.phi*multiplier/multiplier); }))
+	{
+		auto min = std::min_element(group.begin(), group.end(), [](const auto &p1, const auto &p2)
+			{return p1.r < p2.r;});
+		result.emplace_back(*min);
+	}
+	return result;
+}
+
+void SpecificWorker::draw_lidar(const auto &points, QGraphicsScene* scene)
+{
+	static std::vector<QGraphicsItem*> draw_points;
+	for (const auto &p : draw_points)
+	{
+		scene->removeItem(p);
+		delete p;
+	}
+	draw_points.clear();
+
+	const QColor color("LightGreen");
+	const QPen pen(color, 10);
+	//const QBrush brush(color, Qt::SolidPattern);
+	for (const auto &p : points)
+	{
+		const auto dp = scene->addRect(-25, -25, 50, 50, pen);
+		dp->setPos(p.x, p.y);
+		draw_points.push_back(dp);   // add to the list of points to be deleted next time
+	}
 }
 
 
@@ -142,6 +199,9 @@ int SpecificWorker::startup_check()
 	return 0;
 }
 
+void SpecificWorker::new_target_slot(QPointF)
+{
+}
 
 
 /**************************************/

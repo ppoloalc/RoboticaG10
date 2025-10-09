@@ -116,7 +116,7 @@ void SpecificWorker::compute()
 	}
     catch (const Ice::Exception& e){ std::cout << e << " " << "Conexion con laser"<< std::endl; }
 
-	// Robot thinking
+	// Robot thinking mucho
 	//Si el menor valor de la parte central de filter.data < 500 la velocidad de avance es 0 y giro 1
 	//else avance min y giro 0
 	//Hacer con iterador min element

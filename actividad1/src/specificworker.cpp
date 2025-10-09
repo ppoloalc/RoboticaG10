@@ -93,43 +93,55 @@ void SpecificWorker::initialize()
 
 void SpecificWorker::compute()
 {
+	// Robot perception
+	RoboCompLidar3D::TPoints filter_data;
+	RoboCompLidar3D::TData data;
 	try
 	{
 		// filtrar lidar
 		// detectar minimo lidar filtrado
 		// decidimos si return o parar y girar en base a la lectura reciente del lidar
 
-		auto data = lidar3d_proxy->getLidarDataWithThreshold2d("helios", 15000, 1);
+		data = lidar3d_proxy->getLidarDataWithThreshold2d("helios", 15000, 1);
 
 		if (data.points.empty()){qWarning()<<"No points received"; return;}
 
-		const auto filter_data = filter_min_distance_cppitertools(data.points);
-
-
-		if (filter_data.has_value())
+		auto filter_data_ = filter_min_distance_cppitertools(data.points);
+		if (filter_data_.has_value())
 		{
-			draw_lidar(filter_data.value(), &viewer->scene);
-		}
-
-
+			filter_data = filter_data_.value();
+			draw_lidar(filter_data, &viewer->scene);
+		} else
+			return;
 	}
     catch (const Ice::Exception& e){ std::cout << e << " " << "Conexion con laser"<< std::endl; }
 
-
-//Si el menor valor de la parte central de filter.data < 500 la velocidad de avance es 0 y giro 1
+	// Robot thinking
+	//Si el menor valor de la parte central de filter.data < 500 la velocidad de avance es 0 y giro 1
 	//else avance min y giro 0
 	//Hacer con iterador min element
+	float adv = 0.f, rot = 0.f;
+	auto medio = filter_data[filter_data.size()/2];
+	// auto medio = data.points[data.points.size()/2];
+	float limite = std::hypot(medio.x, medio.y);
+	qInfo() << limite;
+	if (abs(limite) < 700.f)
+	 {
+	 	adv = 0.f;
+	 	rot = 1.0;
+	 }
+	  else
+	  {
+	  	adv = 1000.f;
+	  	rot = 0.f;
+	  }
 
-
-
-
-
-
-try
-{
-	omnirobot_proxy->setSpeedBase(1000, 1000, 1);
-}
-	catch (const Ice::Exception& e){ std::cout << e << " " << "Establecer velocidad"<< std::endl; }
+	 // Robot control
+	 try
+	 {
+	 		omnirobot_proxy->setSpeedBase(0, adv, rot);
+	 }
+	 	catch (const Ice::Exception& e){ std::cout << e << " " << "Establecer velocidad"<< std::endl; }
 
 }
 
@@ -143,7 +155,8 @@ std::optional<RoboCompLidar3D::TPoints> SpecificWorker::filter_min_distance_cppi
 	{
 		auto min = std::min_element(group.begin(), group.end(), [](const auto &p1, const auto &p2)
 			{return p1.r < p2.r;});
-		result.emplace_back(*min);
+		if (min->z> 500 && min->phi > -std::numbers::pi/2 && min->phi < std::numbers::pi/2 )
+			result.emplace_back(*min);
 	}
 	return result;
 }

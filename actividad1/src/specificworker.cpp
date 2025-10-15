@@ -21,6 +21,8 @@
 #include <ranges>
 #include <cppitertools/groupby.hpp>
 
+
+
 SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, bool startup_check) : GenericWorker(configLoader, tprx)
 {
 	this->startup_check_flag = startup_check;
@@ -116,33 +118,52 @@ void SpecificWorker::compute()
 	}
     catch (const Ice::Exception& e){ std::cout << e << " " << "Conexion con laser"<< std::endl; }
 
-	// Robot thinking mucho
+	float adv = 0.f, rot = 0.f;
+	std::tuple<State, float, float> result;	//State -> enum class
+	switch(state)
+	{
+	case State:: IDLE:
+		break;
+	case State::FORWARD:
+		result = FORWARD_method(filter_data);
+		break;
+	case State:: TURN:
+		break;
+	case State:: FOLLOW_WALL:
+		break;
+	case State:: SPIRAL:
+		break;
+	}
+	state = std::get<State>(result);
+	adv = std::get<1>(result);
+	rot = std::get<2>(result);
+	//try-catch block to send velocities to the robot
+	try
+	{
+		omnirobot_proxy->setSpeedBase(0, adv, rot);
+	}
+	catch (const Ice::Exception& e){ std::cout << e << " " << "Establecer velocidad"<< std::endl; }
+}
+
+std::tuple<SpecificWorker::State, float, float> SpecificWorker::FORWARD_method(const RoboCompLidar3D::TPoints  &ldata)
+{
+	// Robot thinking
 	//Si el menor valor de la parte central de filter.data < 500 la velocidad de avance es 0 y giro 1
 	//else avance min y giro 0
 	//Hacer con iterador min element
 	float adv = 0.f, rot = 0.f;
-	auto medio = filter_data[filter_data.size()/2];
-	// auto medio = data.points[data.points.size()/2];
-	float limite = std::hypot(medio.x, medio.y);
-	qInfo() << limite;
-	if (abs(limite) < 700.f)
-	 {
-	 	adv = 0.f;
-	 	rot = 1.0;
-	 }
-	  else
-	  {
-	  	adv = 1000.f;
-	  	rot = 0.f;
-	  }
+	auto medio = ldata[ldata.size()/2];
 
-	 // Robot control
-	 try
-	 {
-	 		omnirobot_proxy->setSpeedBase(0, adv, rot);
-	 }
-	 	catch (const Ice::Exception& e){ std::cout << e << " " << "Establecer velocidad"<< std::endl; }
-
+	//float limite = std::hypot(medio.x, medio.y);
+	//qInfo() << limite;
+	if (medio.r < 700.f)
+	{
+		state = State::TURN;
+		return std::make_tuple(state, 0.f, 0.f);
+	}
+	// lo mio
+	return std::make_tuple(State::FORWARD, 1000.f, 0.f);
+	
 }
 
 std::optional<RoboCompLidar3D::TPoints> SpecificWorker::filter_min_distance_cppitertools(const RoboCompLidar3D::TPoints& points)
@@ -155,7 +176,7 @@ std::optional<RoboCompLidar3D::TPoints> SpecificWorker::filter_min_distance_cppi
 	{
 		auto min = std::min_element(group.begin(), group.end(), [](const auto &p1, const auto &p2)
 			{return p1.r < p2.r;});
-		if (min->z> 500 && min->phi > -std::numbers::pi/2 && min->phi < std::numbers::pi/2 )
+		if (min->r>	450 && min->phi > -std::numbers::pi/2 && min->phi < std::numbers::pi/2 )
 			result.emplace_back(*min);
 	}
 	return result;
@@ -182,15 +203,13 @@ void SpecificWorker::draw_lidar(const auto &points, QGraphicsScene* scene)
 	}
 }
 
-
-
 void SpecificWorker::emergency()
 {
-    std::cout << "Emergency worker" << std::endl;
-    //emergencyCODE
-    //
-    //if (SUCCESSFUL) //The componet is safe for continue
-    //  emmit goToRestore()
+	std::cout << "Emergency worker" << std::endl;
+	//emergencyCODE
+	//
+	//if (SUCCESSFUL) //The componet is safe for continue
+	//  emmit goToRestore()
 }
 
 
@@ -198,9 +217,9 @@ void SpecificWorker::emergency()
 //Execute one when exiting to emergencyState
 void SpecificWorker::restore()
 {
-    std::cout << "Restore worker" << std::endl;
-    //restoreCODE
-    //Restore emergency component
+	std::cout << "Restore worker" << std::endl;
+	//restoreCODE
+	//Restore emergency component
 
 }
 

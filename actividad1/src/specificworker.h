@@ -42,6 +42,7 @@ class SpecificWorker : public GenericWorker
 {
 Q_OBJECT
 public:
+
     /**
      * \brief Constructor for SpecificWorker.
      * \param configLoader Configuration loader for the component.
@@ -87,7 +88,10 @@ public slots:
 	void new_target_slot(QPointF);
 
 
+
+
 private:
+
 
 	/**
      * \brief Flag indicating whether startup checks are enabled.
@@ -102,6 +106,16 @@ private:
 
 	void draw_lidar(const auto &points, QGraphicsScene* scene);
 	std::optional<RoboCompLidar3D::TPoints> filter_min_distance_cppitertools(const RoboCompLidar3D::TPoints& points);
+	enum class State
+	{
+		IDLE,
+		FORWARD,
+		TURN,
+		FOLLOW_WALL,
+		SPIRAL
+	};
+	State state = State::FORWARD;
+	std::tuple<State, float, float> FORWARD_method(const RoboCompLidar3D::TPoints& ldata);
 
 signals:
 	//void customSignal();

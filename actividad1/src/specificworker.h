@@ -116,6 +116,8 @@ private:
 	};
 	State state = State::FORWARD;
 	std::tuple<State, float, float> FORWARD_method(const RoboCompLidar3D::TPoints& ldata);
+	std::tuple<SpecificWorker::State, float, float> TURN_method(const RoboCompLidar3D::TPoints& ldata);
+std::tuple<SpecificWorker::State, float, float> FOLLOW_WALL_method(const RoboCompLidar3D::TPoints& ldata);
 
 signals:
 	//void customSignal();

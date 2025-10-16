@@ -20,6 +20,7 @@
 
 #include <ranges>
 #include <cppitertools/groupby.hpp>
+#include<cppitertools/enumerate.hpp>
 
 
 
@@ -104,17 +105,19 @@ void SpecificWorker::compute()
 		// detectar minimo lidar filtrado
 		// decidimos si return o parar y girar en base a la lectura reciente del lidar
 
-		data = lidar3d_proxy->getLidarDataWithThreshold2d("helios", 15000, 1);
-
+		data = lidar3d_proxy->getLidarDataWithThreshold2d("bpearl", 15000, 1);
+		draw_lidar(data.points, &viewer->scene);
 		if (data.points.empty()){qWarning()<<"No points received"; return;}
 
-		auto filter_data_ = filter_min_distance_cppitertools(data.points);
-		if (filter_data_.has_value())
-		{
-			filter_data = filter_data_.value();
-			draw_lidar(filter_data, &viewer->scene);
-		} else
-			return;
+		//qInfo() << data.points.size();
+
+		// auto filter_data_ = filter_min_distance_cppitertools(data.points);
+		// if (filter_data_.has_value())
+		// {
+		// 	filter_data = filter_data_.value();
+		//
+		// } else
+		// 	return;
 	}
     catch (const Ice::Exception& e){ std::cout << e << " " << "Conexion con laser"<< std::endl; }
 
@@ -125,11 +128,13 @@ void SpecificWorker::compute()
 	case State:: IDLE:
 		break;
 	case State::FORWARD:
-		result = FORWARD_method(filter_data);
+		result = FORWARD_method(data.points);
 		break;
 	case State:: TURN:
+		result = TURN_method(data.points);
 		break;
 	case State:: FOLLOW_WALL:
+		result = FOLLOW_WALL_method(data.points);
 		break;
 	case State:: SPIRAL:
 		break;
@@ -147,16 +152,12 @@ void SpecificWorker::compute()
 
 std::tuple<SpecificWorker::State, float, float> SpecificWorker::FORWARD_method(const RoboCompLidar3D::TPoints  &ldata)
 {
-	// Robot thinking
-	//Si el menor valor de la parte central de filter.data < 500 la velocidad de avance es 0 y giro 1
-	//else avance min y giro 0
-	//Hacer con iterador min element
-	float adv = 0.f, rot = 0.f;
-	auto medio = ldata[ldata.size()/2];
-
-	//float limite = std::hypot(medio.x, medio.y);
-	//qInfo() << limite;
-	if (medio.r < 700.f)
+	int offset = ldata.size()/2 - 15;
+	auto min = std::min_element(ldata.begin()+offset, ldata.end()-offset, [](const auto &p1, const auto &p2)
+			{return p1.r < p2.r;});
+	//qInfo() << min->phi;
+	//Condicion de salida
+	if (min->r < 700.f)
 	{
 		state = State::TURN;
 		return std::make_tuple(state, 0.f, 0.f);
@@ -164,6 +165,57 @@ std::tuple<SpecificWorker::State, float, float> SpecificWorker::FORWARD_method(c
 	// lo mio
 	return std::make_tuple(State::FORWARD, 1000.f, 0.f);
 	
+}
+
+std::tuple<SpecificWorker::State, float, float> SpecificWorker::TURN_method(const RoboCompLidar3D::TPoints  &ldata)
+{
+	int offset = ldata.size()/2 - 15;
+	auto min = std::min_element(ldata.begin()+offset, ldata.end()-offset, [](const auto &p1, const auto &p2)
+			{return p1.r < p2.r;});
+	//qInfo() << min->phi;
+	//Condicion de salida
+	if (min->r > 700.f)
+	{
+		//state = State::FORWARD;
+		state = State::FOLLOW_WALL; //Para probar follow wall
+		return std::make_tuple(state, 0.f, 0.f);
+	}
+	// Si pared a la izquierda gira en sentido horario
+	if (min->phi < 0)
+	{
+		return std::make_tuple(State::TURN, 0.f, 0.7f);
+	}
+	// Si pared a la derecha gira en sentido antihorario
+	else
+	{
+		return std::make_tuple(State::TURN, 0.f, -0.7f);
+	}
+
+}
+
+std::tuple<SpecificWorker::State, float, float> SpecificWorker::FOLLOW_WALL_method(const RoboCompLidar3D::TPoints  &ldata)
+{
+	int offset = ldata.size()/2 - 15;
+	auto min = std::min_element(ldata.begin()+offset, ldata.end()-offset, [](const auto &p1, const auto &p2)
+			{return p1.r < p2.r;});
+	qInfo() << "Follow wall:" << min->phi;
+	//Condicion de salida
+	if (min->r > 555.f)
+	{
+		return std::make_tuple(State::FOLLOW_WALL, 0.f, 0.0f);
+	}
+
+	// Si pared a la izquierda gira en sentido horario
+	if (min->phi < 0)
+	{
+		return std::make_tuple(State::FOLLOW_WALL, 0.f, 0.5f);
+	}
+	// Si pared a la derecha gira en sentido antihorario
+	else
+	{
+		return std::make_tuple(State::FOLLOW_WALL, 0.f, -0.5f);
+	}
+
 }
 
 std::optional<RoboCompLidar3D::TPoints> SpecificWorker::filter_min_distance_cppitertools(const RoboCompLidar3D::TPoints& points)
@@ -176,8 +228,8 @@ std::optional<RoboCompLidar3D::TPoints> SpecificWorker::filter_min_distance_cppi
 	{
 		auto min = std::min_element(group.begin(), group.end(), [](const auto &p1, const auto &p2)
 			{return p1.r < p2.r;});
-		if (min->r>	450 && min->phi > -std::numbers::pi/2 && min->phi < std::numbers::pi/2 )
-			result.emplace_back(*min);
+		//if (min->r>	450 && min->phi > -std::numbers::pi/2 && min->phi < std::numbers::pi/2 )
+		result.emplace_back(*min);
 	}
 	return result;
 }
@@ -202,6 +254,7 @@ void SpecificWorker::draw_lidar(const auto &points, QGraphicsScene* scene)
 		draw_points.push_back(dp);   // add to the list of points to be deleted next time
 	}
 }
+
 
 void SpecificWorker::emergency()
 {

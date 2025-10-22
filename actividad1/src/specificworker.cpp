@@ -21,6 +21,12 @@
 #include <ranges>
 #include <cppitertools/groupby.hpp>
 #include<cppitertools/enumerate.hpp>
+#ifdef emit
+#undef emit
+#endif
+#include <algorithm>
+#include <execution>
+
 
 
 
@@ -109,6 +115,9 @@ void SpecificWorker::compute()
 		draw_lidar(data.points, &viewer->scene);
 		if (data.points.empty()){qWarning()<<"No points received"; return;}
 
+		// opcional para quitar puntos liDAR aislados del resto
+		data.points = filter_isolated_points(data.points , 200);
+
 		//qInfo() << data.points.size();
 
 		// auto filter_data_ = filter_min_distance_cppitertools(data.points);
@@ -122,21 +131,25 @@ void SpecificWorker::compute()
     catch (const Ice::Exception& e){ std::cout << e << " " << "Conexion con laser"<< std::endl; }
 
 	float adv = 0.f, rot = 0.f;
+
 	std::tuple<State, float, float> result;	//State -> enum class
 	switch(state)
 	{
 	case State:: IDLE:
 		break;
 	case State::FORWARD:
+		veces = 0;
 		result = FORWARD_method(data.points);
 		break;
 	case State:: TURN:
 		result = TURN_method(data.points);
 		break;
 	case State:: FOLLOW_WALL:
+		veces = 0;
 		result = FOLLOW_WALL_method(data.points);
 		break;
 	case State:: SPIRAL:
+		veces = 0;
 		break;
 	}
 	state = std::get<State>(result);
@@ -156,8 +169,10 @@ std::tuple<SpecificWorker::State, float, float> SpecificWorker::FORWARD_method(c
 	auto min = std::min_element(ldata.begin()+offset, ldata.end()-offset, [](const auto &p1, const auto &p2)
 			{return p1.r < p2.r;});
 	//qInfo() << min->phi;
+	qInfo() << "Estado Forward:" << min->r;
+
 	//Condicion de salida
-	if (min->r < 700.f)
+	if (min->r < 800.f)
 	{
 		state = State::TURN;
 		return std::make_tuple(state, 0.f, 0.f);
@@ -169,6 +184,82 @@ std::tuple<SpecificWorker::State, float, float> SpecificWorker::FORWARD_method(c
 
 std::tuple<SpecificWorker::State, float, float> SpecificWorker::TURN_method(const RoboCompLidar3D::TPoints  &ldata)
 {
+	static std::tuple<SpecificWorker::State, float, float> result;
+	int offset = ldata.size()/2 - 15;
+	auto min = std::min_element(ldata.begin()+offset, ldata.end()-offset, [](const auto &p1, const auto &p2)
+			{return p1.r < p2.r;});
+
+
+	qInfo() << "Estado Turn:" << min->r;
+
+
+	//Condicion de salida
+	if (min->r >= 800.f)
+	{
+		state = State::FORWARD;
+		//state = State::FOLLOW_WALL; //Para probar follow wall
+		return std::make_tuple(state, 0.f, 0.f);
+	}
+	// Si pared a la izquierda gira en sentido horario
+	qInfo() << "	Angulo" << min->phi;
+
+	if (veces == 0 || veces == max_veces)
+	{
+		if (min->phi < 0)
+		{
+			veces++;
+			result = std::make_tuple(State::TURN, 0.f, 0.7f);
+			return result;
+		}
+		else 	// Si pared a la derecha gira en sentido antihorario
+		{
+			veces++;
+			result = std::make_tuple(State::TURN, 0.f, -0.7f);
+			return result;
+		}
+	}
+	if (veces == max_veces)
+	{
+		veces = 0;
+	} else
+	{
+		veces++;
+	}
+
+	return result;
+
+
+}
+
+std::tuple<SpecificWorker::State, float, float> SpecificWorker::FOLLOW_WALL_method(const RoboCompLidar3D::TPoints  &ldata)
+{
+	int offset = ldata.size()/2 - 15;
+	auto min = std::min_element(ldata.begin()+offset, ldata.end()-offset, [](const auto &p1, const auto &p2)
+			{return p1.r < p2.r;});
+	qInfo() << "Follow wall:" << min->phi;
+	//Condicion de salida
+	if (min->r < 700.f) //Si está muy cerca de la pared va a girar para el lado contrario
+	{
+		return std::make_tuple(State::TURN, 0.f, 0.0f);
+	}
+	if (min->r > 900.f) { // Si se está alejando de la pared, va a girar para ir paralelo a la pared
+		// Si pared a la izquierda gira en sentido horario
+		if (min->phi < 0)
+		{
+			return std::make_tuple(State::FOLLOW_WALL, 200.f, 0.2f);
+		}
+		// Si pared a la derecha gira en sentido antihorario
+		else
+		{
+			return std::make_tuple(State::FOLLOW_WALL, 200.f, -0.2f);
+		}
+	} else {
+		return std::make_tuple(State::FOLLOW_WALL, 1000.f, 0.f);
+	}
+}
+
+std::tuple<SpecificWorker::State, float, float> SpecificWorker::SPIRAL_method(const RoboCompLidar3D::TPoints  &ldata)
+{
 	int offset = ldata.size()/2 - 15;
 	auto min = std::min_element(ldata.begin()+offset, ldata.end()-offset, [](const auto &p1, const auto &p2)
 			{return p1.r < p2.r;});
@@ -177,7 +268,7 @@ std::tuple<SpecificWorker::State, float, float> SpecificWorker::TURN_method(cons
 	if (min->r > 700.f)
 	{
 		//state = State::FORWARD;
-		state = State::FOLLOW_WALL; //Para probar follow wall
+		state = State::TURN; //Para probar follow wall
 		return std::make_tuple(state, 0.f, 0.f);
 	}
 	// Si pared a la izquierda gira en sentido horario
@@ -189,31 +280,6 @@ std::tuple<SpecificWorker::State, float, float> SpecificWorker::TURN_method(cons
 	else
 	{
 		return std::make_tuple(State::TURN, 0.f, -0.7f);
-	}
-
-}
-
-std::tuple<SpecificWorker::State, float, float> SpecificWorker::FOLLOW_WALL_method(const RoboCompLidar3D::TPoints  &ldata)
-{
-	int offset = ldata.size()/2 - 15;
-	auto min = std::min_element(ldata.begin()+offset, ldata.end()-offset, [](const auto &p1, const auto &p2)
-			{return p1.r < p2.r;});
-	qInfo() << "Follow wall:" << min->phi;
-	//Condicion de salida
-	if (min->r > 555.f)
-	{
-		return std::make_tuple(State::FOLLOW_WALL, 0.f, 0.0f);
-	}
-
-	// Si pared a la izquierda gira en sentido horario
-	if (min->phi < 0)
-	{
-		return std::make_tuple(State::FOLLOW_WALL, 0.f, 0.5f);
-	}
-	// Si pared a la derecha gira en sentido antihorario
-	else
-	{
-		return std::make_tuple(State::FOLLOW_WALL, 0.f, -0.5f);
 	}
 
 }
@@ -264,6 +330,45 @@ void SpecificWorker::emergency()
 	//if (SUCCESSFUL) //The componet is safe for continue
 	//  emmit goToRestore()
 }
+
+RoboCompLidar3D::TPoints SpecificWorker::filter_isolated_points(const RoboCompLidar3D::TPoints &points, float d) // set to 200mm
+{
+	if (points.empty()) return {};
+
+	const float d_squared = d * d;  // Avoid sqrt by comparing squared distances
+	std::vector<bool> hasNeighbor(points.size(), false);
+
+	// Create index vector for parallel iteration
+	std::vector<size_t> indices(points.size());
+	std::iota(indices.begin(), indices.end(), size_t{0});
+
+	// Parallelize outer loop - each thread checks one point
+	std::for_each(std::execution::par, indices.begin(), indices.end(), [&](size_t i)
+		{
+			const auto& p1 = points[i];
+			// Sequential inner loop (avoid nested parallelism)
+			for (auto &&[j,p2] : iter::enumerate(points))
+			{
+				if (i == j) continue;
+				const float dx = p1.x - p2.x;
+				const float dy = p1.y - p2.y;
+				if (dx * dx + dy * dy <= d_squared)
+				{
+					hasNeighbor[i] = true;
+					break;
+				}
+			}
+	});
+
+	// Collect results
+	std::vector<RoboCompLidar3D::TPoint> result;
+	result.reserve(points.size());
+	for (auto &&[i, p] : iter::enumerate(points))
+		if (hasNeighbor[i])
+			result.push_back(points[i]);
+	return result;
+}
+
 
 
 

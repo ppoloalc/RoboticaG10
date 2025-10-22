@@ -117,7 +117,12 @@ private:
 	State state = State::FORWARD;
 	std::tuple<State, float, float> FORWARD_method(const RoboCompLidar3D::TPoints& ldata);
 	std::tuple<SpecificWorker::State, float, float> TURN_method(const RoboCompLidar3D::TPoints& ldata);
-std::tuple<SpecificWorker::State, float, float> FOLLOW_WALL_method(const RoboCompLidar3D::TPoints& ldata);
+	std::tuple<SpecificWorker::State, float, float> FOLLOW_WALL_method(const RoboCompLidar3D::TPoints& ldata);
+	std::tuple<SpecificWorker::State, float, float> SPIRAL_method(const RoboCompLidar3D::TPoints& ldata);
+	RoboCompLidar3D::TPoints filter_isolated_points(const RoboCompLidar3D::TPoints &points, float d);
+	int veces = 0;
+	int max_veces = 10;
+
 
 signals:
 	//void customSignal();

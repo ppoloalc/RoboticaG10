@@ -104,6 +104,7 @@ private:
 	const int ROBOT_LENGTH = 400;
 	QGraphicsPolygonItem *robot_polygon;
 
+
 	void draw_lidar(const auto &points, QGraphicsScene* scene);
 	std::optional<RoboCompLidar3D::TPoints> filter_min_distance_cppitertools(const RoboCompLidar3D::TPoints& points);
 	enum class State
@@ -114,14 +115,13 @@ private:
 		FOLLOW_WALL,
 		SPIRAL
 	};
-	State state = State::FORWARD;
+	State state = State::SPIRAL;
 	std::tuple<State, float, float> FORWARD_method(const RoboCompLidar3D::TPoints& ldata);
 	std::tuple<SpecificWorker::State, float, float> TURN_method(const RoboCompLidar3D::TPoints& ldata);
 	std::tuple<SpecificWorker::State, float, float> FOLLOW_WALL_method(const RoboCompLidar3D::TPoints& ldata);
 	std::tuple<SpecificWorker::State, float, float> SPIRAL_method(const RoboCompLidar3D::TPoints& ldata);
 	RoboCompLidar3D::TPoints filter_isolated_points(const RoboCompLidar3D::TPoints &points, float d);
-	int veces = 0;
-	int max_veces = 10;
+	bool decision = false;
 
 
 signals:

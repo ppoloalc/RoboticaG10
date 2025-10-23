@@ -26,7 +26,9 @@
 #endif
 #include <algorithm>
 #include <execution>
-
+#include <expected>
+#include <chrono>
+#include <random>
 
 
 
@@ -88,13 +90,16 @@ void SpecificWorker::initialize()
 
 	this->dimensions = QRectF(-6000, -3000, 12000, 6000);
 	viewer = new AbstractGraphicViewer(this->frame, this->dimensions);
+	auto [r, e] = viewer->add_robot(15, 15, 0, 100, QColor("Blue"));
+	robot_polygon = r;   // declarar en .h
+
+
 	this->resize(900,450);
 	viewer->show();
 	const auto rob = viewer->add_robot(ROBOT_LENGTH, ROBOT_LENGTH, 0, 190, QColor("Blue"));
 	robot_polygon = std::get<0>(rob);
 
 	connect(viewer, &AbstractGraphicViewer::new_mouse_coordinates, this, &SpecificWorker::new_target_slot);
-
 
 }
 
@@ -138,18 +143,19 @@ void SpecificWorker::compute()
 	case State:: IDLE:
 		break;
 	case State::FORWARD:
-		veces = 0;
+		decision = false;
 		result = FORWARD_method(data.points);
 		break;
 	case State:: TURN:
 		result = TURN_method(data.points);
 		break;
 	case State:: FOLLOW_WALL:
-		veces = 0;
+		decision = false;
 		result = FOLLOW_WALL_method(data.points);
 		break;
 	case State:: SPIRAL:
-		veces = 0;
+		decision = false;
+		result = SPIRAL_method(data.points);
 		break;
 	}
 	state = std::get<State>(result);
@@ -172,7 +178,7 @@ std::tuple<SpecificWorker::State, float, float> SpecificWorker::FORWARD_method(c
 	qInfo() << "Estado Forward:" << min->r;
 
 	//Condicion de salida
-	if (min->r < 800.f)
+	if (min->r < 670.f)
 	{
 		state = State::TURN;
 		return std::make_tuple(state, 0.f, 0.f);
@@ -189,46 +195,46 @@ std::tuple<SpecificWorker::State, float, float> SpecificWorker::TURN_method(cons
 	auto min = std::min_element(ldata.begin()+offset, ldata.end()-offset, [](const auto &p1, const auto &p2)
 			{return p1.r < p2.r;});
 
+	auto min_angulo = std::min_element(ldata.begin()+offset, ldata.end()-offset, [](const auto &p1, const auto &p2)
+		{return abs(p1.phi) < abs(p2.phi);});
+
 
 	qInfo() << "Estado Turn:" << min->r;
 
 
 	//Condicion de salida
-	if (min->r >= 800.f)
+	if (min->r >= 670.f)
 	{
-		state = State::FORWARD;
-		//state = State::FOLLOW_WALL; //Para probar follow wall
+		std::random_device rd;
+		std::mt19937 gen(rd());
+		std::uniform_int_distribution<> distrib(1, 10);
+		int random = distrib(gen);
+		if (random > 5)
+			state = State::FORWARD;
+		else
+			state = State::FOLLOW_WALL;
+
 		return std::make_tuple(state, 0.f, 0.f);
 	}
 	// Si pared a la izquierda gira en sentido horario
 	qInfo() << "	Angulo" << min->phi;
 
-	if (veces == 0 || veces == max_veces)
+	if (!decision) //|| veces == max_veces
 	{
-		if (min->phi < 0)
+		if (min_angulo->phi < 0)
 		{
-			veces++;
+			decision = true;
 			result = std::make_tuple(State::TURN, 0.f, 0.7f);
 			return result;
 		}
 		else 	// Si pared a la derecha gira en sentido antihorario
 		{
-			veces++;
+			decision = true;
 			result = std::make_tuple(State::TURN, 0.f, -0.7f);
 			return result;
 		}
 	}
-	if (veces == max_veces)
-	{
-		veces = 0;
-	} else
-	{
-		veces++;
-	}
-
 	return result;
-
-
 }
 
 std::tuple<SpecificWorker::State, float, float> SpecificWorker::FOLLOW_WALL_method(const RoboCompLidar3D::TPoints  &ldata)
@@ -236,26 +242,33 @@ std::tuple<SpecificWorker::State, float, float> SpecificWorker::FOLLOW_WALL_meth
 	int offset = ldata.size()/2 - 15;
 	auto min = std::min_element(ldata.begin()+offset, ldata.end()-offset, [](const auto &p1, const auto &p2)
 			{return p1.r < p2.r;});
-	qInfo() << "Follow wall:" << min->phi;
+	auto min_angulo = std::min_element(ldata.begin()+offset, ldata.end()-offset, [](const auto &p1, const auto &p2)
+	{return abs(p1.phi) < abs(p2.phi);});
+	qInfo() << "Follow wall Distancia:" << min->r;
+	qInfo() << "	Follow wall Angulo:" << min_angulo->phi;
+
 	//Condicion de salida
-	if (min->r < 700.f) //Si está muy cerca de la pared va a girar para el lado contrario
+	if (min->r < 650.f)
 	{
-		return std::make_tuple(State::TURN, 0.f, 0.0f);
+		return std::make_tuple(State::TURN, 0.f, 0.f);
 	}
-	if (min->r > 900.f) { // Si se está alejando de la pared, va a girar para ir paralelo a la pared
-		// Si pared a la izquierda gira en sentido horario
-		if (min->phi < 0)
+
+	if (min->r > 670.f)
+	{
+		if (min_angulo->phi < 0)
 		{
-			return std::make_tuple(State::FOLLOW_WALL, 200.f, 0.2f);
+			return std::make_tuple(State::FOLLOW_WALL, 500.f, -0.5f);
 		}
-		// Si pared a la derecha gira en sentido antihorario
 		else
 		{
-			return std::make_tuple(State::FOLLOW_WALL, 200.f, -0.2f);
+			return std::make_tuple(State::FOLLOW_WALL, 500.f, 0.5f);
 		}
-	} else {
+	}
+	else
+	{
 		return std::make_tuple(State::FOLLOW_WALL, 1000.f, 0.f);
 	}
+
 }
 
 std::tuple<SpecificWorker::State, float, float> SpecificWorker::SPIRAL_method(const RoboCompLidar3D::TPoints  &ldata)
@@ -265,22 +278,18 @@ std::tuple<SpecificWorker::State, float, float> SpecificWorker::SPIRAL_method(co
 			{return p1.r < p2.r;});
 	//qInfo() << min->phi;
 	//Condicion de salida
-	if (min->r > 700.f)
+	if (min->r < 800.f)
 	{
-		//state = State::FORWARD;
-		state = State::TURN; //Para probar follow wall
+		state = State::TURN;
 		return std::make_tuple(state, 0.f, 0.f);
 	}
-	// Si pared a la izquierda gira en sentido horario
-	if (min->phi < 0)
-	{
-		return std::make_tuple(State::TURN, 0.f, 0.7f);
-	}
-	// Si pared a la derecha gira en sentido antihorario
-	else
-	{
-		return std::make_tuple(State::TURN, 0.f, -0.7f);
-	}
+	float rot = 1.f;
+	float adv = 5.f;
+	static float dism = 0.001;
+	dism += 0.001;
+	static float aum = 5;
+	aum += 5;
+	return std::make_tuple(State::SPIRAL, adv+aum, rot-dism);
 
 }
 

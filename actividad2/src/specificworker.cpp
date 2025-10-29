@@ -135,6 +135,11 @@ void SpecificWorker::compute()
 	}
     catch (const Ice::Exception& e){ std::cout << e << " " << "Conexion con laser"<< std::endl; }
 
+	StateMachine(data);
+}
+
+void SpecificWorker::StateMachine(const RoboCompLidar3D::TData &data)
+{
 	float adv = 0.f, rot = 0.f;
 
 	std::tuple<State, float, float> result;	//State -> enum class

@@ -68,8 +68,9 @@ public slots:
 	 * \brief Main compute loop of the worker.
 	 */
 	void compute();
+void StateMachine(const RoboCompLidar3D::TData &data);
 
-	/**
+/**
 	 * \brief Handles the emergency state loop.
 	 */
 	void emergency();

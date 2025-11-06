@@ -101,7 +101,7 @@ void SpecificWorker::initialize()
 	robot_polygon = std::get<0>(rob);
 
 	viewer_room = new AbstractGraphicViewer(this->frame_room, this->dimensions);
-	auto [rr, re] = viewer_room->add_robot(15, 15, 0, 100, QColor("Blue"));
+	auto [rr, re] = viewer_room->add_robot(ROBOT_LENGTH, ROBOT_LENGTH, 0, 190, QColor("Blue"));
 	robot_room_draw = rr;
 
 	// draw room in viewer_room
@@ -130,7 +130,7 @@ void SpecificWorker::compute()
 		// detectar minimo lidar filtrado
 		// decidimos si return o parar y girar en base a la lectura reciente del lidar
 
-		data = lidar3d_proxy->getLidarDataWithThreshold2d("bpearl", 15000, 1);
+		data = lidar3d_proxy->getLidarDataWithThreshold2d("pearl", 15000, 1);
 		draw_lidar(data.points, &viewer->scene);
 		if (data.points.empty()){qWarning()<<"No points received"; return;}
 
@@ -149,7 +149,46 @@ void SpecificWorker::compute()
 	}
     catch (const Ice::Exception& e){ std::cout << e << " " << "Conexion con laser"<< std::endl; }
 
-	StateMachine(data);
+	auto corners = room_detector.compute_corners(data.points, &viewer->scene); // Detecta las esquinas de la habitacion
+
+    auto match = hungarian.match(corners, room.transform_corners_to(robot_pose.inverse())); // Junta las esquinas detectadas con las esquinas de la habitacion
+	for (auto &m:match)
+	{
+		// Imprimir los puntos del match
+		qDebug () << std::get<0>(std::get<0>(m)).x() << " " << std::get<0>(std::get<0>(m)).y();
+		qDebug () << std::get<0>(std::get<1>(m)).x() << " " << std::get<0>(std::get<1>(m)).y();
+	}
+
+	Eigen::MatrixXd W(corners.size() * 2, 3);
+	Eigen::VectorXd b(corners.size() * 2);
+	for (auto &&[i, m]: match | iter::enumerate)
+	{
+		auto &[meas_c, nom_c, _] = m;
+		auto &[p_meas, __, ___] = meas_c;
+		auto &[p_nom, ____, _____] = nom_c;
+		b(2 * i)     = p_nom.x() - p_meas.x();
+		b(2 * i + 1) = p_nom.y() - p_meas.y();
+		W.block<1, 3>(2 * i, 0)     << 1.0, 0.0, -p_meas.y();
+		W.block<1, 3>(2 * i + 1, 0) << 0.0, 1.0, p_meas.x();
+	}
+	// estimate new pose with pseudoinverse
+	const Eigen::Vector3d r = (W.transpose() * W).inverse() * W.transpose() * b;
+	std::cout << r << std::endl;
+	qInfo() << "--------------------";
+
+
+	if (r.array().isNaN().any())
+		return;
+
+	robot_pose.translate(Eigen::Vector2d(r(0), r(1)));
+	robot_pose.rotate(r[2]);
+
+	robot_room_draw->setPos(robot_pose.translation().x(), robot_pose.translation().y());
+	double angle = std::atan2(robot_pose.rotation()(1, 0), robot_pose.rotation()(0, 0));
+	robot_room_draw->setRotation(angle);
+
+
+	//StateMachine(data);
 }
 
 void SpecificWorker::StateMachine(const RoboCompLidar3D::TData &data)

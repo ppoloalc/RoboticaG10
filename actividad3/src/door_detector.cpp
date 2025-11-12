@@ -10,7 +10,39 @@
 
 Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene)
 {
-   return doors;
+    //Devolver vector de puertas. Cada puerta es una estructura formada por 2 puntos con sus angulos
+    //Recorrer lidar con sliding window.
+    Peaks peaks;
+    for (const auto &p: points | iter::sliding_window(2))
+    {
+        const auto &p1 = p[0];
+        const auto &p2 = p[1];
+        if (p1.distance2d - p2.distance2d > 1000.f )
+        {
+            if (p1.distance2d > p2.distance2d)
+                peaks.emplace_back(Eigen::Vector2f{p2.x, p2.y}, p2.phi);
+            else
+                peaks.emplace_back(Eigen::Vector2f{p1.x, p1.y}, p1.phi);
+        }
+    }
+
+    static std::vector<QGraphicsItem*> items;
+    for (const auto &i: items)
+    {
+        scene->removeItem(i);
+        delete i;
+    }
+    items.clear();
+    for (const auto &[p, _] : peaks)
+    {
+        auto item = scene->addEllipse(-100, -100, 200, 200, QPen(QColor("cyan")), QBrush(QColor("cyan")));
+        item->setPos(p.x(), p.y());
+        items.push_back(item);
+    }
+    Doors doors;
+    // Pintar linea entre los 2 puntos de la puerta
+
+    return doors;
 }
 
 // Method to use the Doors vector to filter out the LiDAR points that como from a room outside the current one

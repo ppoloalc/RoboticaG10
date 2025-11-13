@@ -23,11 +23,7 @@ LIST(APPEND HEADERS
         ../src/qcustomplot.h
 )
 
-find_package(OpenCV REQUIRED COMPONENTS core imgproc)
-if(OpenCV_FOUND)
-    include_directories(${OpenCV_INCLUDE_DIRS})
-    list(APPEND LIBS ${OpenCV_LIBS})
-endif()
+INCLUDE($ENV{ROBOCOMP}/cmake/modules/opencv4.cmake)
 
 LIST(APPEND LIBS ${LIBS} tbb)
 SET(LIBS ${LIBS} tbb Qt6PrintSupport)

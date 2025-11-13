@@ -39,7 +39,41 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScen
         item->setPos(p.x(), p.y());
         items.push_back(item);
     }
+    ///////////////////////////////////////////////////////////////////////
+    for (auto it = peaks.begin(); it+1 != peaks.end();)
+    {
+         auto &p1 = *it;
+         auto &p2 = *(it + 1);
+         float d1 = pow(std::get<0>(p2).x()-std::get<0>(p1).x(), 2);
+         float d2 = pow(std::get<0>(p2).y()-std::get<0>(p1).y(), 2);
+         float distance = sqrt(d1 + d2);
+
+
+         if (  distance < 600.f )
+         {
+            peaks.erase(it + 1);
+         }
+        else {
+            ++it;
+        }
+    }
+
     Doors doors;
+    for (const auto &pe : peaks | iter::combinations(2))
+    {
+        const auto &p1 = pe[0];
+        const auto &p2 = pe[1];
+        float d1 = pow(std::get<0>(p2).x()-std::get<0>(p1).x(), 2);
+        float d2 = pow(std::get<0>(p2).y()-std::get<0>(p1).y(), 2);
+        float distance = sqrt(d1 + d2);
+        if ( distance > 800.f and distance < 1200.f )
+        {
+            Door d(std::get<0>(p2), std::get<1>(p2), std::get<0>(p1), std::get<1>(p1));
+            doors.emplace_back(d);
+        }
+    }
+
+
     // Pintar linea entre los 2 puntos de la puerta
 
     return doors;

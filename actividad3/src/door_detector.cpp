@@ -17,14 +17,25 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScen
     {
         const auto &p1 = p[0];
         const auto &p2 = p[1];
-        if (p1.distance2d - p2.distance2d > 1000.f )
+        if (abs(p1.distance2d -p2.distance2d) > 1000.f )
         {
+            //Imprimir que picos cumplen la condicion
+            qInfo() << "Pico: " << p1.distance2d << " " << p2.distance2d;
             if (p1.distance2d > p2.distance2d)
                 peaks.emplace_back(Eigen::Vector2f{p2.x, p2.y}, p2.phi);
             else
                 peaks.emplace_back(Eigen::Vector2f{p1.x, p1.y}, p1.phi);
         }
     }
+
+
+    ///////////////////////////////////////////////////////////////////////
+    // non-maximum suppression of peaks: remove peaks closer than 500mm
+    Peaks nms_peaks;
+    // for (const auto &[p, a] : peaks)
+    //     if (const bool too_close = std::ranges::any_of(nms_peaks, [&p](const auto &p2) { return (p - std::get<0>(p2)).norm() < 500.f; }); not too_close)
+    //         nms_peaks.emplace_back(p, a);
+    // peaks = nms_peaks;
 
     static std::vector<QGraphicsItem*> items;
     for (const auto &i: items)
@@ -35,47 +46,26 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScen
     items.clear();
     for (const auto &[p, _] : peaks)
     {
-        auto item = scene->addEllipse(-100, -100, 200, 200, QPen(QColor("cyan")), QBrush(QColor("cyan")));
+        auto item = scene->addEllipse(-100, -100, 200, 200, QPen(QColor("yellow")), QBrush(QColor("yellow")));
         item->setPos(p.x(), p.y());
         items.push_back(item);
-    }
-    ///////////////////////////////////////////////////////////////////////
-    for (auto it = peaks.begin(); it+1 != peaks.end();)
-    {
-         auto &p1 = *it;
-         auto &p2 = *(it + 1);
-         float d1 = pow(std::get<0>(p2).x()-std::get<0>(p1).x(), 2);
-         float d2 = pow(std::get<0>(p2).y()-std::get<0>(p1).y(), 2);
-         float distance = sqrt(d1 + d2);
-
-
-         if (  distance < 600.f )
-         {
-            peaks.erase(it + 1);
-         }
-        else {
-            ++it;
-        }
     }
 
     Doors doors;
     for (const auto &pe : peaks | iter::combinations(2))
     {
-        const auto &p1 = pe[0];
-        const auto &p2 = pe[1];
-        float d1 = pow(std::get<0>(p2).x()-std::get<0>(p1).x(), 2);
-        float d2 = pow(std::get<0>(p2).y()-std::get<0>(p1).y(), 2);
-        float distance = sqrt(d1 + d2);
-        if ( distance > 800.f and distance < 1200.f )
+        const auto &[p1, a1] = pe[0];
+        const auto &[p2, a2] = pe[1];
+        float distance = (p1 - p2).norm();
+        if ( distance > 700.f and distance < 1300.f )
         {
-            Door d(std::get<0>(p2), std::get<1>(p2), std::get<0>(p1), std::get<1>(p1));
-            doors.emplace_back(d);
+
+            // Pintar linea entre los 2 puntos de la puerta
+            doors.emplace_back(p2,  a2 ,p1, a1);
+            const auto item = scene->addLine(p2.x(), p2.y(), p1.x(), p1.y(), QPen(QColor("red"), 60));
+            items.push_back(item);
         }
     }
-
-
-    // Pintar linea entre los 2 puntos de la puerta
-
     return doors;
 }
 

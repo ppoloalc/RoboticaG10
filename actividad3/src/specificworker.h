@@ -142,13 +142,14 @@ class SpecificWorker final : public GenericWorker
                 default:                        return "UNKNOWN";
             }
         }
-        STATE state = STATE::LOCALISE;
+        //STATE state = STATE::LOCALISE;
+        STATE state = STATE::GOTO_ROOM_CENTER;
         using RetVal = std::tuple<STATE, float, float>;
         RetVal goto_door(const RoboCompLidar3D::TPoints &points);
         RetVal orient_to_door(const RoboCompLidar3D::TPoints &points);
         RetVal cross_door(const RoboCompLidar3D::TPoints &points);
         RetVal localise(const Match &match);
-        RetVal goto_room_center(const RoboCompLidar3D::TPoints &points);
+        RetVal goto_room_center(const RoboCompLidar3D::TPoints& points, AbstractGraphicViewer* viewer);
         RetVal update_pose(const Corners &corners, const Match &match);
         RetVal turn(const Corners &corners);
         RetVal process_state(const RoboCompLidar3D::TPoints &data, const Corners &corners, const Match &match, AbstractGraphicViewer *viewer);

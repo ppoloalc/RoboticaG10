@@ -19,7 +19,7 @@ namespace rc
 
         // compute lines
         auto  lines = RansacLineDetector::detect_lines(floor_line_cart);
-        if (scene != nullptr) draw_lines_on_2D_tab(lines, scene);
+        //if (scene != nullptr) draw_lines_on_2D_tab(lines, scene);
 
         //lines = filter_lines_by_length(lines, static_cast<float>(estimated_size.head(2).minCoeff()/2.f));
 

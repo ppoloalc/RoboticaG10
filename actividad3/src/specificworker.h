@@ -177,6 +177,7 @@ class SpecificWorker final : public GenericWorker
 
         // doors
         DoorDetector door_detector;
+        Doors doors;
 
         // image processor
         rc::ImageProcessor image_processor;

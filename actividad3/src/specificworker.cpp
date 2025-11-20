@@ -140,6 +140,7 @@ void SpecificWorker::compute()
 {
 
 	RoboCompLidar3D::TPoints data = read_data();
+	doors = door_detector.detect(data, &viewer->scene);
    data= door_detector.filter_points(data, &viewer->scene);
 
 
@@ -176,8 +177,8 @@ void SpecificWorker::compute()
 
 
    // Send movements commands to the robot constrained by the match_error
-   //qInfo() << __FUNCTION__ << "Adv: " << adv << " Rot: " << rot;
-   //move_robot(adv, rot, max_match_error);
+   qInfo() << __FUNCTION__ << "Adv: " << adv << " Rot: " << rot;
+   move_robot(adv, rot, max_match_error);
 
 
    // draw robot in viewer
@@ -212,15 +213,34 @@ std::optional<RoboCompLidar3D::TPoints> SpecificWorker::filter_min_distance_cppi
 	return result;
 }
 
+SpecificWorker::RetVal SpecificWorker::goto_door(const RoboCompLidar3D::TPoints& points)
+{
+	//doors[0].center_before()
+	// exit condition
+
+}
+
 SpecificWorker::RetVal SpecificWorker::goto_room_center(const RoboCompLidar3D::TPoints& points, AbstractGraphicViewer* viewer)
 {
 	const auto center = room_detector.estimate_center_from_walls();
 	if (not center.has_value())return{};
 
+	float dist = center.value().norm();
+	// exit
+	if (dist < 300.f) return {STATE::TURN, 0.f, 0.f};
 
-		qInfo() << "Centro estimado de la habitación:"
-				<< "x =" << center.value().x()
-				<< ", y =" << center.value().y();
+	// Do my thing
+	float k = 0.5;
+	// Angulo theta sub e (O grande sub e)
+	float angle = atan2(center.value().x(), center.value().y());
+	float rotVel = k * angle;
+
+	// σ
+	float sigma = M_PI / 4.0;   // 45 grados
+	float adv = params.MAX_ADV_SPEED * exp((- angle * angle) / (2 * sigma * sigma));
+
+
+
 
 	static QGraphicsItem* item = nullptr;
 	if (item != nullptr)
@@ -228,16 +248,49 @@ SpecificWorker::RetVal SpecificWorker::goto_room_center(const RoboCompLidar3D::T
 		viewer->scene.removeItem(item);
 		delete item;
 	}
+
 	item=viewer->scene.addEllipse(center.value().x() - 100, center.value().y() - 100, 200, 200, QPen(Qt::magenta, 30));
 
-	return std::make_tuple(STATE::GOTO_ROOM_CENTER, 0.f, 0.f);
+	return {STATE::GOTO_ROOM_CENTER, adv, rotVel};
+}
+
+SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners)
+{
+
+	auto const &[success, spin] = image_processor.check_red_patch_in_image(camera360rgb_proxy, label_img);
+	// exit condition
+	if (success)
+	{
+		return {STATE::CROSS_DOOR, 0.f, 0.f};
+	}
+
+	return {STATE::TURN, 0.f,  spin * 0.3};
 }
 
 SpecificWorker::RetVal SpecificWorker::process_state(const RoboCompLidar3D::TPoints& data, const Corners& corners,
                                                      const Match& match, AbstractGraphicViewer* viewer)
 {
 	auto val = goto_room_center(data, viewer);
-	return std::make_tuple(STATE::GOTO_ROOM_CENTER, 0.f, 0.f);
+	switch (std::get<0>(val))
+	{
+		case STATE::GOTO_ROOM_CENTER:
+			val = goto_room_center(data, viewer);
+			break;
+		case STATE::TURN:
+			val = turn(corners);
+			break;
+		case STATE::CROSS_DOOR:
+			break;
+		case STATE::IDLE:
+			break;
+		case STATE::LOCALISE:
+			break;
+
+
+
+	}
+
+	return val;
 }
 
 void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &filtered_points, Eigen::Vector2d center, QGraphicsScene *scene)

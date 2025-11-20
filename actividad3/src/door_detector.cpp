@@ -32,10 +32,10 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScen
     ///////////////////////////////////////////////////////////////////////
     // non-maximum suppression of peaks: remove peaks closer than 500mm
     Peaks nms_peaks;
-    // for (const auto &[p, a] : peaks)
-    //     if (const bool too_close = std::ranges::any_of(nms_peaks, [&p](const auto &p2) { return (p - std::get<0>(p2)).norm() < 500.f; }); not too_close)
-    //         nms_peaks.emplace_back(p, a);
-    // peaks = nms_peaks;
+    for (const auto &[p, a] : peaks)
+        if (const bool too_close = std::ranges::any_of(nms_peaks, [&p](const auto &p2) { return (p - std::get<0>(p2)).norm() < 500.f; }); not too_close)
+            nms_peaks.emplace_back(p, a);
+    peaks = nms_peaks;
 
     static std::vector<QGraphicsItem*> items;
     for (const auto &i: items)

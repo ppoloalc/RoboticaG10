@@ -20,7 +20,7 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScen
         if (abs(p1.distance2d -p2.distance2d) > 1000.f )
         {
             //Imprimir que picos cumplen la condicion
-            qInfo() << "Pico: " << p1.distance2d << " " << p2.distance2d;
+            //qInfo() << "Pico: " << p1.distance2d << " " << p2.distance2d;
             if (p1.distance2d > p2.distance2d)
                 peaks.emplace_back(Eigen::Vector2f{p2.x, p2.y}, p2.phi);
             else

@@ -195,6 +195,7 @@ void SpecificWorker::compute()
    lcdNumber_y->display(robot_pose.translation().y());
    lcdNumber_angle->display(angle);
    last_time = std::chrono::high_resolution_clock::now();
+	label_state->setText(to_string(state));
 }
 
 std::optional<RoboCompLidar3D::TPoints> SpecificWorker::filter_min_distance_cppitertools(const RoboCompLidar3D::TPoints& points)
@@ -215,9 +216,36 @@ std::optional<RoboCompLidar3D::TPoints> SpecificWorker::filter_min_distance_cppi
 
 SpecificWorker::RetVal SpecificWorker::goto_door(const RoboCompLidar3D::TPoints& points)
 {
-	//doors[0].center_before()
-	// exit condition
 
+	auto centro = doors[0].center_before(robot_pose.translation(), 800.f); //robot_pose debe ser Vector2d
+
+	// exit condition -> Llega al centro antes de la puert
+	if (centro.norm() < 300.f)
+	{
+		return {STATE::ORIENT_TO_DOOR, 0.f, 0.f};
+	}
+
+	const auto &[adv, rot] = robot_controller(centro);
+	static QGraphicsItem* item = nullptr;
+	if (item != nullptr)
+	{
+		viewer->scene.removeItem(item);
+		delete item;
+	}
+
+	item=viewer->scene.addEllipse(centro.x() - 100, centro.y() - 100, 200, 200, QPen(Qt::magenta, 30));
+	return {STATE::GOTO_DOOR, adv, rot};
+}
+
+SpecificWorker::RetVal SpecificWorker::orient_to_door(const RoboCompLidar3D::TPoints& points)
+{
+	//Exit condition si mirando a puerta
+	if (true)
+	{
+
+	}
+
+	return {STATE::ORIENT_TO_DOOR, 0.f, 0.f};
 }
 
 SpecificWorker::RetVal SpecificWorker::goto_room_center(const RoboCompLidar3D::TPoints& points, AbstractGraphicViewer* viewer)
@@ -225,23 +253,14 @@ SpecificWorker::RetVal SpecificWorker::goto_room_center(const RoboCompLidar3D::T
 	const auto center = room_detector.estimate_center_from_walls();
 	if (not center.has_value())return{};
 
-	float dist = center.value().norm();
-	// exit
-	if (dist < 300.f) return {STATE::TURN, 0.f, 0.f};
+	//exit
+	if (center.value().norm() < 300.f)
+	{
+		return {STATE::TURN, 0.f, 0.f};
+	}
 
-	// Do my thing
-	float k = 0.5;
-	// Angulo theta sub e (O grande sub e)
-	float angle = atan2(center.value().x(), center.value().y());
-	float rotVel = k * angle;
-
-	// σ
-	float sigma = M_PI / 4.0;   // 45 grados
-	float adv = params.MAX_ADV_SPEED * exp((- angle * angle) / (2 * sigma * sigma));
-
-
-
-
+	Eigen::Vector2f center_point = center.value().cast<float>();
+	auto [adv, rotVel] = robot_controller(center_point);
 	static QGraphicsItem* item = nullptr;
 	if (item != nullptr)
 	{
@@ -261,7 +280,8 @@ SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners)
 	// exit condition
 	if (success)
 	{
-		return {STATE::ORIENT_TO_DOOR, 0.f, 0.f};
+		localised = true; //Encuentra cuadrado rojo
+		return {STATE::GOTO_DOOR, 0.f, 0.f};
 	}
 
 	return {STATE::TURN, 0.f,  spin * 0.3};
@@ -287,7 +307,7 @@ SpecificWorker::RetVal SpecificWorker::process_state(const RoboCompLidar3D::TPoi
 		case STATE::LOCALISE:
 			break;
 		case STATE::GOTO_DOOR:
-			//val = goto_door(data);
+			val = goto_door(data);
 			break;
 		case STATE::IDLE:
 			break;
@@ -334,7 +354,7 @@ RoboCompLidar3D::TPoints SpecificWorker::read_data()
 	RoboCompLidar3D::TData data;
 	try
 	{
-		data = lidar3d_proxy->getLidarDataWithThreshold2d("helios", 15000, 3);
+		data = lidar3d_proxy->getLidarDataWithThreshold2d("helios", 15000, 1);
 	}
 	catch (const Ice::Exception& e){ std::cout << e << " " << "Conexion con laser"<< std::endl; return{};}
 	if (data.points.empty()){qWarning()<<"No points received"; return{};}
@@ -390,6 +410,25 @@ void SpecificWorker::move_robot(float adv, float rot, float max_match_error)
 	}
 	catch (const Ice::Exception& e){ std::cout << e << " " << "Establecer velocidad"<< std::endl; }
 
+}
+
+std::tuple<float, float> SpecificWorker::robot_controller(const Eigen::Vector2f& target)
+{
+	float dist = target.norm();
+	// exit
+	if (dist < 200.f) return {0.f, 0.f};
+
+	// Do my thing
+	float k = 0.5;
+	// Angulo theta sub e (O grande sub e)
+	float angle = atan2(target.x(), target.y());
+	float rotVel = k * angle;
+
+	// σ
+	float sigma = M_PI / 4.0;   // 45 grados
+	float adv = params.MAX_ADV_SPEED * exp((- angle * angle) / (2 * sigma * sigma));
+
+	return {adv, rotVel};
 }
 
 

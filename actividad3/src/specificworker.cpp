@@ -261,7 +261,7 @@ SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners)
 	// exit condition
 	if (success)
 	{
-		return {STATE::CROSS_DOOR, 0.f, 0.f};
+		return {STATE::ORIENT_TO_DOOR, 0.f, 0.f};
 	}
 
 	return {STATE::TURN, 0.f,  spin * 0.3};
@@ -279,14 +279,18 @@ SpecificWorker::RetVal SpecificWorker::process_state(const RoboCompLidar3D::TPoi
 		case STATE::TURN:
 			val = turn(corners);
 			break;
-		case STATE::CROSS_DOOR:
+		case STATE::ORIENT_TO_DOOR:
 			break;
-		case STATE::IDLE:
+		case STATE::CROSS_DOOR:
+			//val = cross_door(data);
 			break;
 		case STATE::LOCALISE:
 			break;
-
-
+		case STATE::GOTO_DOOR:
+			//val = goto_door(data);
+			break;
+		case STATE::IDLE:
+			break;
 
 	}
 

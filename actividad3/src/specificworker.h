@@ -195,6 +195,12 @@ class SpecificWorker final : public GenericWorker
         void predict_robot_pose();
         std::tuple<float, float> robot_controller(const Eigen::Vector2f &target);
 
+        //Controlar habitaciones
+        bool rojo = true;
+        bool room_1 = true;
+
+        //Borrar habitacion
+        QGraphicsRectItem * hab;
 
 signals:
         //void customSignal();

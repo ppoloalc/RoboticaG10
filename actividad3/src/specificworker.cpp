@@ -146,9 +146,6 @@ void SpecificWorker::initialize()
 
 void SpecificWorker::compute()
 {
-
-
-
 	RoboCompLidar3D::TPoints data = read_data();
 	doors = door_detector.detect(data, &viewer->scene);
    data= door_detector.filter_points(data, &viewer->scene);
@@ -182,6 +179,9 @@ void SpecificWorker::compute()
        time_series_plotter->addDataPoint(0, max_match_error);
        //print_match(match, max_match_error); //debugging
    }
+
+	qInfo() << max_match_error;
+
 
 
    // update robot pose
@@ -236,9 +236,9 @@ std::optional<RoboCompLidar3D::TPoints> SpecificWorker::filter_min_distance_cppi
 SpecificWorker::RetVal SpecificWorker::goto_door(const RoboCompLidar3D::TPoints& points)
 {
 
-	const auto centro = doors[0].center_before(robot_pose.translation(), 800.f); //robot_pose debe ser Vector2d
+	const auto centro = doors[0].center_before(robot_pose.translation(), 1000.f); //robot_pose debe ser Vector2d
 	// exit condition -> Llega al centro antes de la puert
-	if (centro.norm() < 300.f)
+	if (centro.norm() < 500.f)
 	{
 		return {STATE::ORIENT_TO_DOOR, 0.f, 0.f};
 	}
@@ -272,7 +272,7 @@ SpecificWorker::RetVal SpecificWorker::cross_door(const RoboCompLidar3D::TPoints
 {
 	static int cont = 0;
 
-	if (cont == 50)
+	if (cont == 60)
 	{
 		if (rojo && room_1){
 			rojo = false;

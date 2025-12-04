@@ -155,6 +155,8 @@ void SpecificWorker::compute()
    const auto &[corners, lines] = room_detector.compute_corners(data, &viewer->scene);
    const auto center_opt = room_detector.estimate_center_from_walls(lines);
    draw_lidar(data, *center_opt, &viewer->scene);
+	draw_doors(nominal_rooms[0].doors);
+
    // match corners  transforming first nominal corners to robot's frame
 	Match match;
     if (room_1)
@@ -180,7 +182,7 @@ void SpecificWorker::compute()
        //print_match(match, max_match_error); //debugging
    }
 
-	qInfo() << max_match_error;
+	//qInfo() << max_match_error;
 
 
 
@@ -190,14 +192,14 @@ void SpecificWorker::compute()
 
 
    // Process state machine
-   RetVal ret_val = process_state(data, corners, match, viewer);
+   /*RetVal ret_val = process_state(data, corners, match, viewer);
    auto [st, adv, rot] = ret_val;
-   state = st;
+   state = st;*/
 
 
    // Send movements commands to the robot constrained by the match_error
-   qInfo() << __FUNCTION__ << "Adv: " << adv << " Rot: " << rot;
-   move_robot(adv, rot, max_match_error);
+   /*qInfo() << __FUNCTION__ << "Adv: " << adv << " Rot: " << rot;
+   move_robot(adv, rot, max_match_error);*/
 
 
    // draw robot in viewer
@@ -208,8 +210,8 @@ void SpecificWorker::compute()
 
    // update GUI
    time_series_plotter->update();
-   lcdNumber_adv->display(adv);
-   lcdNumber_rot->display(rot);
+   /*lcdNumber_adv->display(adv);
+   lcdNumber_rot->display(rot);*/
    lcdNumber_x->display(robot_pose.translation().x());
    lcdNumber_y->display(robot_pose.translation().y());
    lcdNumber_angle->display(angle);
@@ -272,7 +274,7 @@ SpecificWorker::RetVal SpecificWorker::cross_door(const RoboCompLidar3D::TPoints
 {
 	static int cont = 0;
 
-	if (cont == 60)
+	if (cont == 30)
 	{
 		if (rojo && room_1){
 			rojo = false;
@@ -326,8 +328,9 @@ SpecificWorker::RetVal SpecificWorker::goto_room_center(const RoboCompLidar3D::T
 	return {STATE::GOTO_ROOM_CENTER, adv, rotVel};
 }
 
-SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners)
+SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners, RoboCompLidar3D::TPoints& points)
 {
+
 	//const auto success = false;
 	//const auto spin = 0;
 	std::tuple<bool, int> cuadro;
@@ -342,7 +345,14 @@ SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners)
 	// exit condition
 	if (std::get<0>(cuadro))
 	{
+		// call localiser()
 		localised = true; //Encuentra cuadrado rojo
+		for(auto doors = door_detector.detect(points); auto &door : doors)
+		{
+			door.global_p1 = nominal_rooms[0].get_projection_of_point_on_closest_wall(robot_pose * door.p1.cast<double>());
+			door.global_p2 = nominal_rooms[0].get_projection_of_point_on_closest_wall(robot_pose * door.p2.cast<double>());
+		}
+		nominal_rooms[0].doors = doors;
 		return {STATE::GOTO_DOOR, 0.f, 0.f};
 	}
 
@@ -359,7 +369,7 @@ SpecificWorker::RetVal SpecificWorker::process_state(const RoboCompLidar3D::TPoi
 			val = goto_room_center(data, viewer);
 			break;
 		case STATE::TURN:
-			val = turn(corners);
+			val = turn(corners, data);
 			break;
 		case STATE::ORIENT_TO_DOOR:
 			val = orient_to_door(data);
@@ -463,6 +473,29 @@ RoboCompLidar3D::TPoints SpecificWorker::filter_isolated_points(const RoboCompLi
 		if (hasNeighbor[i])
 			result.push_back(points[i]);
 	return result;
+}
+
+void SpecificWorker::draw_doors(const Doors& doors)
+{
+	static std::vector<QGraphicsItem*> draw_points;
+	for (const auto &d : draw_points)
+	{
+		viewer_room->scene.removeItem(d);
+		delete d;
+	}
+	draw_points.clear();
+
+	for (const auto &door : doors)
+	{
+		auto item = viewer_room->scene.addEllipse(-100, -100, 200, 200, QPen(QColor("green")), QBrush(QColor("green")));
+		item->setPos(door.global_p1.x(), door.global_p1.y());
+		draw_points.push_back(item);
+		item = viewer_room->scene.addEllipse(-100, -100, 200, 200, QPen(QColor("green")), QBrush(QColor("green")));
+		item->setPos(door.global_p2.x(), door.global_p2.y());
+		draw_points.push_back(item);
+		const auto item2 = viewer_room->scene.addLine(door.global_p1.x(), door.global_p1.y(), door.global_p2.x(), door.global_p2.y(), QPen(QColor("magenta"), 30));
+		draw_points.push_back(item2);
+	}
 }
 
 bool SpecificWorker::update_robot_pose(const Corners& corners, const Match& match)

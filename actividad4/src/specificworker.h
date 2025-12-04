@@ -151,7 +151,7 @@ class SpecificWorker final : public GenericWorker
         RetVal localise(const Match &match);
         RetVal goto_room_center(const RoboCompLidar3D::TPoints& points, AbstractGraphicViewer* viewer);
         RetVal update_pose(const Corners &corners, const Match &match);
-        RetVal turn(const Corners &corners);
+        RetVal turn(const Corners &corners, RoboCompLidar3D::TPoints& points);
         RetVal process_state(const RoboCompLidar3D::TPoints &data, const Corners &corners, const Match &match, AbstractGraphicViewer *viewer);
 
         // draw
@@ -178,6 +178,7 @@ class SpecificWorker final : public GenericWorker
         // doors
         DoorDetector door_detector;
         Doors doors;
+        void draw_doors(const Doors &doors);
 
         // image processor
         rc::ImageProcessor image_processor;

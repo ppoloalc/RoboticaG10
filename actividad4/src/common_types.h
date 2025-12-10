@@ -11,6 +11,7 @@
 #include <boost/circular_buffer.hpp>
 #include <QLineF>
 #include <Eigen/src/Geometry/ParametrizedLine.h>
+#include <opencv2/core/utility.hpp>
 
 
 // types for the features
@@ -62,19 +63,21 @@ struct Door
     [[nodiscard]] Eigen::Vector2f center() const { return 0.5f * (p1 + p2); }
     [[nodiscard]] Eigen::Vector2f center_before(const Eigen::Vector2d &robot_pos, float offset = 500.f) const   // a point 500mm before the center along the door direction
     {
+
         // computer the normal to the door direction pointing towards the robot
-        Eigen::Vector2f dir = p2 - p1;
+        const auto center = 0.5 * (global_p1 + global_p2);
+        Eigen::Vector2f dir = global_p1 - global_p2;
         const float dir_norm = dir.norm();
         if (dir_norm == 0.f)
-            return center(); // degenerate door, return center
+            return center; // degenerate door, return center
         dir /= dir_norm;
         // perpendicular (normal) to door direction
         Eigen::Vector2f normal(-dir.y(), dir.x());
         // choose the normal that points toward the robot
-        const Eigen::Vector2f to_robot = robot_pos.cast<float>() - center();
+        const Eigen::Vector2f to_robot = robot_pos.cast<float>() - center;
         if (to_robot.dot(normal) < 0.f)
             normal = -normal;
-        Eigen::Vector2f before = center() + offset * normal;
+        Eigen::Vector2f before = center + offset * normal;
         return before;
     }
     [[nodiscard]] float direction() const

@@ -73,7 +73,7 @@
 
             Eigen::Vector2f get_projection_of_point_on_closest_wall(const Eigen::Vector2f &p)
             {
-                const auto w = get_closest_wall_to_point(p);
+                 auto w = get_closest_wall_to_point(p);
                 return std::get<0>(w).projection(p);
             }
         };

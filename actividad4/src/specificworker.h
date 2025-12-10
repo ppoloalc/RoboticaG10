@@ -151,7 +151,7 @@ class SpecificWorker final : public GenericWorker
         RetVal localise(const Match &match);
         RetVal goto_room_center(const RoboCompLidar3D::TPoints& points, AbstractGraphicViewer* viewer);
         RetVal update_pose(const Corners &corners, const Match &match);
-        RetVal turn(const Corners &corners, RoboCompLidar3D::TPoints& points);
+        RetVal turn(const Corners &corners, const RoboCompLidar3D::TPoints& points, const Match& match);
         RetVal process_state(const RoboCompLidar3D::TPoints &data, const Corners &corners, const Match &match, AbstractGraphicViewer *viewer);
 
         // draw
@@ -198,7 +198,9 @@ class SpecificWorker final : public GenericWorker
 
         //Controlar habitaciones
         bool rojo = true;
-        bool room_1 = true;
+
+        int room_index = 0;
+        int current_door = 0;
 
         //Borrar habitacion
         QGraphicsRectItem * hab;

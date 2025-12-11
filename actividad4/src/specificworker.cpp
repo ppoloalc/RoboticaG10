@@ -246,19 +246,23 @@ SpecificWorker::RetVal SpecificWorker::goto_door(const RoboCompLidar3D::TPoints&
 	}
 
 	item=viewer->scene.addEllipse(centro.x() - 100, centro.y() - 100, 200, 200, QPen(Qt::magenta, 30));
-	return {STATE::GOTO_DOOR, adv, rot};
+	return {STATE::GOTO_DOOR, adv*0.9, rot};
 }
 
 SpecificWorker::RetVal SpecificWorker::orient_to_door(const RoboCompLidar3D::TPoints& points)
 {
-	const auto centro_puerta = (doors[0].p1+doors[0].p2)/2;
+	const auto centro_puerta = robot_pose.inverse() * ((nominal_rooms[room_index].doors[current_door].global_p1+nominal_rooms[room_index].doors[current_door].global_p2)/2).cast<double>();
+
+	qInfo() << "Centro puerta" << centro_puerta.x() << centro_puerta.y();
+
+
 	//Exit condition si mirando a puerta
 	//if (centro_puerta.norm() < 500.f)
 	if (centro_puerta.norm() < 500.f)
 	{
 		return {STATE::CROSS_DOOR, 0.f, 0.f};
 	}
-	const auto &[adv, rot] = robot_controller(centro_puerta);
+	const auto &[adv, rot] = robot_controller(centro_puerta.cast<float>());
 	return {STATE::ORIENT_TO_DOOR, 100.f, rot};
 }
 
@@ -340,10 +344,11 @@ SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners, const RoboCo
 
 		// call localiser()
 		localised = true; //Encuentra cuadrado rojo
-		update_robot_pose(corners, match);
+		bool error = update_robot_pose(corners, match);
+		qInfo() << "Error localizacion" << error;
+
 		for(auto &door : doors)
 		{
-
 			door.global_p1 = nominal_rooms[room_index].get_projection_of_point_on_closest_wall((robot_pose * door.p1.cast<double>()).cast<float>());
 			door.global_p2 = nominal_rooms[room_index].get_projection_of_point_on_closest_wall((robot_pose * door.p2.cast<double>()).cast<float>());
 		}
@@ -553,7 +558,7 @@ std::tuple<float, float> SpecificWorker::robot_controller(const Eigen::Vector2f&
 	float rotVel = k * angle;
 
 	// σ
-	float sigma = M_PI / 4.0;   // 45 grados
+	float sigma = M_PI / 6.0;   // 45 grados
 	float adv = params.MAX_ADV_SPEED * exp((- angle * angle) / (2 * sigma * sigma));
 
 	return {adv, rotVel};

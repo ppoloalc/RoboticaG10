@@ -18,7 +18,7 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScen
     {
         const auto &p1 = p[0];
         const auto &p2 = p[1];
-        if (abs(p1.distance2d -p2.distance2d) > 1000.f )
+        if (abs(p1.distance2d -p2.distance2d) > 700.f )
         {
             //Imprimir que picos cumplen la condicion
             //qInfo() << "Pico: " << p1.distance2d << " " << p2.distance2d;

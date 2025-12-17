@@ -50,6 +50,7 @@
 #include "nominal_room.h"
 #include "door_detector.h"
 #include "image_processor.h"
+#include "door_crossing_tracker.h"
 
 /**
  * \brief Class SpecificWorker implements the core functionality of the component.
@@ -148,7 +149,7 @@ class SpecificWorker final : public GenericWorker
         RetVal goto_door(const RoboCompLidar3D::TPoints &points);
         RetVal orient_to_door(const RoboCompLidar3D::TPoints &points);
         RetVal cross_door(const RoboCompLidar3D::TPoints &points);
-        RetVal localise(const Match &match);
+        RetVal localise(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene);
         RetVal goto_room_center(const RoboCompLidar3D::TPoints& points, AbstractGraphicViewer* viewer);
         RetVal update_pose(const Corners &corners, const Match &match);
         RetVal turn(const Corners &corners, const RoboCompLidar3D::TPoints& points, const Match& match);
@@ -190,7 +191,11 @@ class SpecificWorker final : public GenericWorker
         bool relocal_centered = false;
         bool localised = false;
 
-        bool update_robot_pose(const Corners &corners, const Match &match);
+        std::optional<std::pair<Eigen::Affine2f, float>> update_robot_pose(int room_index,
+                                                              const Corners &corners,
+                                                              const Eigen::Affine2f &r_pose,
+                                                              bool transform_corners);
+
         void move_robot(float adv, float rot, float max_match_error);
         Eigen::Vector3d solve_pose(const Corners &corners, const Match &match);
         void predict_robot_pose();
@@ -201,9 +206,12 @@ class SpecificWorker final : public GenericWorker
 
         int room_index = 0;
         int current_door = 0;
+        int current_room = -1;
+        DoorCrossing door_crossing;
 
         //Borrar habitacion
         QGraphicsRectItem * hab;
+
 
 signals:
         //void customSignal();

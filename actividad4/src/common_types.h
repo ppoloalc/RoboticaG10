@@ -59,6 +59,11 @@ struct Door
     Eigen::Vector2f p2;
     float p2_angle;
     Eigen::Vector2f global_p1 = Eigen::Vector2f::Zero(), global_p2=Eigen::Vector2f::Zero();
+    bool visited = false;
+    int connects_to_room = -1;  // index of the room this door connects to
+
+    int connects_to_door = -1; // index of the door in the connected room
+
     [[nodiscard]] float width() const { return (p2 - p1).norm(); }
     [[nodiscard]] Eigen::Vector2f center() const { return 0.5f * (p1 + p2); }
     [[nodiscard]] Eigen::Vector2f center_before(const Eigen::Vector2d &robot_pos, float offset = 500.f) const   // a point 500mm before the center along the door direction

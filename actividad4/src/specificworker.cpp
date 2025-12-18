@@ -487,7 +487,11 @@ SpecificWorker::RetVal SpecificWorker::localise(const RoboCompLidar3D::TPoints &
 
 		// If close enough to center -> stop and move to TURN
 		if (center.value().norm() < params.RELOCAL_CENTER_EPS )
+		{
+			if (red_detected && green_detected)
+				return {STATE::GOTO_DOOR, 0.0f, 0.0f};
 			return {STATE::TURN, 0.0f, 0.0f};
+		}
 
 	}
 
@@ -504,6 +508,8 @@ SpecificWorker::RetVal SpecificWorker::goto_room_center(const RoboCompLidar3D::T
 	//exit
 	if (center.value().norm() < 300.f)
 	{
+		if (red_detected && green_detected)
+			return {STATE::GOTO_DOOR, 0.f, 0.f};
 		return {STATE::TURN, 0.f, 0.f};
 	}
 
@@ -526,17 +532,16 @@ SpecificWorker::RetVal SpecificWorker::goto_room_center(const RoboCompLidar3D::T
 
 SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners, const RoboCompLidar3D::TPoints& points, const Match& match)
 {
-
-
 	const auto &[success, room_index, left_right] = image_processor.check_colour_patch_in_image(camera360rgb_proxy, this->label_img);
-
 	// exit condition
 	if (success)
 	{
-
 		// call localiser()
 		current_room = room_index;
-		//localised = true; //Encuentra cuadrado rojo
+		if (current_room == 0) red_detected = true;
+		else if (current_room == 1) green_detected = true;
+
+		localised = true; //Encuentra cuadrado rojo
 		// update robot pose to have a fresh value
 		qInfo() << __FUNCTION__ << "Updating robot pose to match room " << current_room;
 		if (const auto res = update_robot_pose(current_room, corners, robot_pose, true); res.has_value())

@@ -204,6 +204,8 @@ class SpecificWorker final : public GenericWorker
         std::tuple<float, float> robot_controller(const Eigen::Vector2f &target);
 
         //Controlar habitaciones
+        bool red_detected = false;
+        bool green_detected = false;
         bool rojo = true;
 
         int room_index = 0;

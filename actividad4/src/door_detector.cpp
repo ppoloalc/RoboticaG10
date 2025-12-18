@@ -60,9 +60,8 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScen
         float distance = (p1 - p2).norm();
         if ( distance > 600.f and distance < 1200.f )
         {
-
             // Pintar linea entre los 2 puntos de la puerta
-            doors.emplace_back(p2,  a2 ,p1, a1);
+            doors.emplace_back(p1,  a1 ,p2, a2);
             const auto item = scene->addLine(p2.x(), p2.y(), p1.x(), p1.y(), QPen(QColor("red"), 60));
             items.push_back(item);
         }
@@ -87,7 +86,20 @@ RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoi
             // Check if the angular range wraps around the -π/+π boundary
             const bool angle_wraps = d.p2_angle < d.p1_angle;
 
-            // Determine if point is within the door's angular range
+            float min_a = std::min(d.p1_angle, d.p2_angle);
+            float max_a = std::max(d.p1_angle, d.p2_angle);
+
+            bool point_in_angular_range;
+            if (max_a - min_a > M_PI) // Caso real de cruce de límite +/- PI
+            {
+                point_in_angular_range = (p.phi > max_a) or (p.phi < min_a);
+            }
+            else // Caso normal
+            {
+                point_in_angular_range = (p.phi > min_a) and (p.phi < max_a);
+            }
+
+            /*// Determine if point is within the door's angular range
             bool point_in_angular_range;
             if (angle_wraps)
             {
@@ -98,7 +110,7 @@ RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoi
             {
                 // Normal case: point is in range if it's between p1_angle and p2_angle
                 point_in_angular_range = (p.phi > d.p1_angle) and (p.phi < d.p2_angle);
-            }
+            }*/
 
             // Filter out points that are through the door (in angular range and farther than door)
             if(point_in_angular_range and p.distance2d >= dist_to_door)

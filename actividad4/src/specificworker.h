@@ -37,6 +37,7 @@
 #include <random>
 #include <doublebuffer/DoubleBuffer.h>
 #include "time_series_plotter.h"
+#include "pointcloud_center_estimator.h"
 
 #ifdef emit
 #undef emit
@@ -113,6 +114,7 @@ class SpecificWorker final : public GenericWorker
             float RELOCAL_MATCH_MAX_DIST = 2000.f;   // mm for Hungarian gating
             float RELOCAL_DONE_COST = 500.f;
             float RELOCAL_DONE_MATCH_MAX_ERROR = 1000.f;
+
         };
         Params params;
 
@@ -121,7 +123,7 @@ class SpecificWorker final : public GenericWorker
         QGraphicsPolygonItem *robot_draw, *robot_room_draw;
 
         // robot
-        Eigen::Affine2d robot_pose;
+        Eigen::Affine2f robot_pose;
 
         // rooms
         std::vector<NominalRoom> nominal_rooms{ NominalRoom{5500.f, 4000.f}, NominalRoom{8000.f, 4000.f}};
@@ -146,7 +148,7 @@ class SpecificWorker final : public GenericWorker
         //STATE state = STATE::LOCALISE;
         STATE state = STATE::GOTO_ROOM_CENTER;
         using RetVal = std::tuple<STATE, float, float>;
-        RetVal goto_door(const RoboCompLidar3D::TPoints &points);
+        RetVal goto_door(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene);
         RetVal orient_to_door(const RoboCompLidar3D::TPoints &points);
         RetVal cross_door(const RoboCompLidar3D::TPoints &points);
         RetVal localise(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene);
@@ -211,6 +213,8 @@ class SpecificWorker final : public GenericWorker
 
         //Borrar habitacion
         QGraphicsRectItem * hab;
+
+
 
 
 signals:

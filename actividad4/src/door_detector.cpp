@@ -58,7 +58,7 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScen
         const auto &[p1, a1] = pe[0];
         const auto &[p2, a2] = pe[1];
         float distance = (p1 - p2).norm();
-        if ( distance > 700.f and distance < 1300.f )
+        if ( distance > 600.f and distance < 1200.f )
         {
 
             // Pintar linea entre los 2 puntos de la puerta

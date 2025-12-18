@@ -81,8 +81,8 @@
           qInfo() << "    Doors:";
           for (const auto &[i, d] : doors | iter::enumerate)
           {
-              qInfo() << "        Door index " << i << ": p1_global=(" << d.global_p1.x() << ", " <<
-                  d.global_p1.y() << "), p2=(" << d.global_p2.x() << ", " << d.global_p2.y() << ")";
+              qInfo() << "        Door index " << i << ": p1_global=(" << d.p1_global.x() << ", " <<
+                  d.p1_global.y() << "), p2=(" << d.p2_global.x() << ", " << d.p2_global.y() << ")";
               qInfo() << "        Visited: " << d.visited << ", connects_to_room: " << d.connects_to_room << ", connects_to_door: " << d.connects_to_door;
           }
       }

@@ -152,7 +152,7 @@ class SpecificWorker final : public GenericWorker
         RetVal orient_to_door(const RoboCompLidar3D::TPoints &points);
         RetVal cross_door(const RoboCompLidar3D::TPoints &points);
         RetVal localise(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene);
-        RetVal goto_room_center(const RoboCompLidar3D::TPoints& points, AbstractGraphicViewer* viewer);
+        RetVal goto_room_center(const RoboCompLidar3D::TPoints& points, AbstractGraphicViewer* viewer, const Corners& corners);
         RetVal update_pose(const Corners &corners, const Match &match);
         RetVal turn(const Corners &corners, const RoboCompLidar3D::TPoints& points, const Match& match);
         RetVal process_state(const RoboCompLidar3D::TPoints &data, const Corners &corners, const Match &match, AbstractGraphicViewer *viewer);
@@ -182,6 +182,7 @@ class SpecificWorker final : public GenericWorker
         DoorDetector door_detector;
         Doors doors;
         void draw_doors(const Doors &doors);
+        int choose_next_door(int current_room);
 
         // image processor
         rc::ImageProcessor image_processor;

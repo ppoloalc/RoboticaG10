@@ -143,12 +143,6 @@ void SpecificWorker::initialize()
 
 void SpecificWorker::compute()
 {
-	try
-	{
-		auto a=mnist_proxy->getNumber();
-		qInfo()<< a;
-	}catch(const Ice::Exception& e){qInfo() << "Error";};
-
 
 	RoboCompLidar3D::TPoints data = read_data();
 	doors = door_detector.detect(data, &viewer->scene);
@@ -159,7 +153,7 @@ void SpecificWorker::compute()
    const auto &[corners, lines] = room_detector.compute_corners(data, &viewer->scene);
    const auto center_opt = room_detector.estimate_center_from_walls(lines);
 	//const auto center_opt = center_estimator.estimate(data);
-	qInfo() << "Se pintan las puertas --------";
+	//qInfo() << "Se pintan las puertas --------";
    draw_lidar(data, *center_opt, &viewer->scene);
 	draw_doors(nominal_rooms[room_index].doors);
 
@@ -538,10 +532,20 @@ SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners, const RoboCo
    // check for colour patch in image
    /////////////////////////////////////////////////////////////////
 //const auto &[success, room_index, left_right] = image_processor.check_colour_patch_in_image(camera360rgb_proxy, this->label_img);
-	const auto room_index = mnist_proxy->getNumber();
-	if (room_index != -1)
+	RoboCompMNIST::MNistResult resultado;
+	resultado.label = -1;
+	resultado.centrox = -1;
+	try
+	{
+		resultado = mnist_proxy->getNumber();
+	}catch(const Ice::Exception& e){};
+
+
+	qInfo() << resultado.label << "---" << resultado.centrox;
+
+	if (resultado.label != -1 && resultado.label < 2 && resultado.centrox < 850)
    {
-   		current_room = room_index;
+   		current_room = resultado.label;
 		// Para hacer solo una vez el detectar el cuadrado con numero
    		if (current_room == 0) zero_detected = true;
    		else if (current_room == 1) one_detected = true;
@@ -550,7 +554,7 @@ SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners, const RoboCo
        // update robot pose to have a fresh value
        if (const auto res = update_robot_pose(current_room, corners, robot_pose, true); res.has_value())
            robot_pose = res.value().first;
-       else return{STATE::TURN, 0.0f, params.RELOCAL_ROT_SPEED/2};
+       else return{STATE::TURN, 0.0f, params.RELOCAL_ROT_SPEED};
 
 
        ///////////////////////////////////////////////////////////////////////

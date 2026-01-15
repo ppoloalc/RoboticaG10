@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
-#    Copyright (C) 2025 by YOUR NAME HERE
+#    Copyright (C) 2026 by YOUR NAME HERE
 #
 #    This file is part of RoboComp
 #
@@ -67,6 +67,8 @@ class SpecificWorker(GenericWorker):
         test = ifaces.RoboCompCamera360RGB.TRoi()
         print(f"Testing RoboCompCamera360RGB.TImage from ifaces.RoboCompCamera360RGB")
         test = ifaces.RoboCompCamera360RGB.TImage()
+        print(f"Testing RoboCompMNIST.MNistResult from ifaces.RoboCompMNIST")
+        test = ifaces.RoboCompMNIST.MNistResult()
         QTimer.singleShot(200, QApplication.instance().quit)
 
 
@@ -96,5 +98,9 @@ class SpecificWorker(GenericWorker):
     # From the RoboCompCamera360RGB you can use this types:
     # ifaces.RoboCompCamera360RGB.TRoi
     # ifaces.RoboCompCamera360RGB.TImage
+
+    ######################
+    # From the RoboCompMNIST you can use this types:
+    # ifaces.RoboCompMNIST.MNistResult
 
 

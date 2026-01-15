@@ -143,6 +143,13 @@ void SpecificWorker::initialize()
 
 void SpecificWorker::compute()
 {
+	try
+	{
+		auto a=mnist_proxy->getNumber();
+		qInfo()<< a;
+	}catch(const Ice::Exception& e){qInfo() << "Error";};
+	return;
+
 	RoboCompLidar3D::TPoints data = read_data();
 	doors = door_detector.detect(data, &viewer->scene);
    data= door_detector.filter_points(data, &viewer->scene);

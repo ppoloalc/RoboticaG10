@@ -33,18 +33,53 @@ import torch
 import itertools
 import math
 import os
+import torch.nn as nn
+import torch.nn.functional as F
 
 sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
 
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()
+        # 1st Conv Layer: 1 input channel (grayscale), 32 output channels, 3x3 kernel
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+        # 2nd Conv Layer: 32 input channels, 64 output channels, 3x3 kernel
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        # Pooling layer
+        self.pool = nn.MaxPool2d(2, 2)
+        # Fully Connected Layers
+        # Image reduces to 7x7 after two poolings (28->14->7)
+        self.fc1 = nn.Linear(64 * 7 * 7, 128)
+        self.fc2 = nn.Linear(128, 10) # Output layer (10 digits)
+
+    def forward(self, x):
+        # Conv1 -> Relu -> MaxPool
+        x = self.pool(F.relu(self.conv1(x)))
+        # Conv2 -> Relu -> MaxPool
+        x = self.pool(F.relu(self.conv2(x)))
+        # Flatten
+        x = x.view(-1, 64 * 7 * 7)
+        # FC Layers
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
 
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, configData, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map, configData)
         self.Period = configData["Period"]["Compute"]
-        ## CARGAMOS EL MODELO:
-        self.model = torch.jit.load("../my_network.pt")
-        self.model.eval()
+        # 1. Inicializamos la variable por seguridad
+        self.model = None
+        # Cargar el modelo
+        try:
+            # map_location='cpu' es importante si entrenaste en GPU y ejecutas en CPU
+            self.model = torch.load("/home/usuario/RoboticaG10/actividad4/my_network.pt", map_location=torch.device('cpu'), weights_only=False)
+            self.model.eval()
+            print("Model loaded successfully")
+        except Exception as e:
+            print(f"Error loading model: {e}")
+
 
         if startup_check:
             self.startup_check()
@@ -173,6 +208,8 @@ class SpecificWorker(GenericWorker):
     #
     def MNIST_getNumber(self):
 
+        #print("Me llamando MNIST_getNumber")
+        #return 1
         # 0. Verificaciones previas
         if self.model is None:
             print("Model not loaded.")

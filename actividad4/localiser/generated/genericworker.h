@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2025 by YOUR NAME HERE
+ *    Copyright (C) 2026 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -18,7 +18,6 @@
  */
 #ifndef GENERICWORKER_H
 #define GENERICWORKER_H
-#define USE_QTGUI
 
 #include <stdint.h>
 
@@ -28,6 +27,8 @@
 	#include <QtGui>
 #endif
 #include <ui_mainUI.h>
+#define USE_QTGUI
+
 #include <grafcetStep/GRAFCETStep.h>
 #include <ConfigLoader/ConfigLoader.h>
 #include <QStateMachine>
@@ -43,11 +44,12 @@
 #include <Camera360RGB.h>
 #include <GenericBase.h>
 #include <Lidar3D.h>
+#include <MNIST.h>
 #include <OmniRobot.h>
 
 #define BASIC_PERIOD 100
 
-using TuplePrx = std::tuple<RoboCompCamera360RGB::Camera360RGBPrxPtr,RoboCompLidar3D::Lidar3DPrxPtr,RoboCompOmniRobot::OmniRobotPrxPtr>;
+using TuplePrx = std::tuple<RoboCompCamera360RGB::Camera360RGBPrxPtr,RoboCompLidar3D::Lidar3DPrxPtr,RoboCompMNIST::MNISTPrxPtr,RoboCompOmniRobot::OmniRobotPrxPtr>;
 
 
 class GenericWorker : public QWidget, public Ui_guiDlg
@@ -68,6 +70,7 @@ public:
 
 	RoboCompCamera360RGB::Camera360RGBPrxPtr camera360rgb_proxy;
 	RoboCompLidar3D::Lidar3DPrxPtr lidar3d_proxy;
+	RoboCompMNIST::MNISTPrxPtr mnist_proxy;
 	RoboCompOmniRobot::OmniRobotPrxPtr omnirobot_proxy;
 
 

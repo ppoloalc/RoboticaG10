@@ -148,7 +148,7 @@ void SpecificWorker::compute()
 		auto a=mnist_proxy->getNumber();
 		qInfo()<< a;
 	}catch(const Ice::Exception& e){qInfo() << "Error";};
-	return;
+
 
 	RoboCompLidar3D::TPoints data = read_data();
 	doors = door_detector.detect(data, &viewer->scene);
@@ -484,7 +484,7 @@ SpecificWorker::RetVal SpecificWorker::localise(const RoboCompLidar3D::TPoints &
 		// If close enough to center -> stop and move to TURN
 		if (center.value().norm() < params.RELOCAL_CENTER_EPS )
 		{
-			if (red_detected && green_detected)
+			if (zero_detected && one_detected)
 				return {STATE::GOTO_DOOR, 0.0f, 0.0f};
 			return {STATE::TURN, 0.0f, 0.0f};
 		}
@@ -509,7 +509,7 @@ SpecificWorker::RetVal SpecificWorker::goto_room_center(const RoboCompLidar3D::T
 	//exit
 	if (center.value().norm() < 300.f)
 	{
-		if (red_detected && green_detected)
+		if (zero_detected && one_detected)
 
 			return {STATE::GOTO_DOOR, 0.f, 0.f};
 		return {STATE::TURN, 0.f, 0.f};
@@ -542,15 +542,15 @@ SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners, const RoboCo
 	if (room_index != -1)
    {
    		current_room = room_index;
-		// Para hacer solo una vez el detectar el cuadrado rojo y verde:
-   		if (current_room == 0) red_detected = true;
-   		else if (current_room == 1) green_detected = true;
+		// Para hacer solo una vez el detectar el cuadrado con numero
+   		if (current_room == 0) zero_detected = true;
+   		else if (current_room == 1) one_detected = true;
 
-   		localised = true; //Encuentra cuadrado rojo
+   		localised = true; //Encuentra recuadro con numero
        // update robot pose to have a fresh value
        if (const auto res = update_robot_pose(current_room, corners, robot_pose, true); res.has_value())
            robot_pose = res.value().first;
-       else return{STATE::TURN, 0.0f, left_right*params.RELOCAL_ROT_SPEED/2};
+       else return{STATE::TURN, 0.0f, params.RELOCAL_ROT_SPEED/2};
 
 
        ///////////////////////////////////////////////////////////////////////
@@ -597,7 +597,7 @@ if (door_crossing.valid)
        return {STATE::GOTO_DOOR, 0.0f, 0.0f};  // SUCCESS
    }
    // continue turning
-   return {STATE::TURN, 0.0f, left_right*params.RELOCAL_ROT_SPEED};
+   return {STATE::TURN, 0.0f, params.RELOCAL_ROT_SPEED};
 }
 
 int SpecificWorker::choose_next_door(int current_room) {

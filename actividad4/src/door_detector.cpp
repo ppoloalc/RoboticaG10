@@ -72,7 +72,46 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScen
 // Method to use the Doors vector to filter out the LiDAR points that como from a room outside the current one
 RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene)
 {
+
     const auto doors = detect(points, scene);
+    if(doors.empty()) return points;
+
+    // for each door, check if the distance from the robot to each lidar point is smaller than the distance from the robot to the door
+    RoboCompLidar3D::TPoints filtered;
+    for(const auto &p : points)
+    {
+        bool filtered_out = false;
+
+        for(const auto &d : doors)
+        {
+            const float dist_to_door = d.center().norm();
+            const bool angle_wraps = d.p2_angle < d.p1_angle;
+
+            // Determine if point is within the door's angular range
+            bool point_in_angular_range;
+            if (angle_wraps)
+            {
+                // If the range wraps around, point is in range if it's > p1_angle OR < p2_angle
+                point_in_angular_range = (p.phi > d.p1_angle) or (p.phi < d.p2_angle);
+            }
+            else
+            {
+                float offset = qDegreesToRadians(3);
+                // Normal case: point is in range if it's between p1_angle and p2_angle
+                point_in_angular_range = (p.phi > d.p1_angle - offset) and (p.phi < d.p2_angle + offset);
+            }
+
+            if (point_in_angular_range && p.distance2d >= dist_to_door)
+            {
+                filtered_out = true;
+                break;
+            }
+        }
+        if (!filtered_out)
+            filtered.emplace_back(p);
+    }
+    return filtered;
+    /*const auto doors = detect(points, scene);
 
     if(doors.empty()) return points;
 
@@ -99,7 +138,7 @@ RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoi
                 point_in_angular_range = (p.phi > min_a) and (p.phi < max_a);
             }
 
-            /*// Determine if point is within the door's angular range
+            /#1#/ Determine if point is within the door's angular range
             bool point_in_angular_range;
             if (angle_wraps)
             {
@@ -110,7 +149,7 @@ RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoi
             {
                 // Normal case: point is in range if it's between p1_angle and p2_angle
                 point_in_angular_range = (p.phi > d.p1_angle) and (p.phi < d.p2_angle);
-            }*/
+            }#1#
 
             // Filter out points that are through the door (in angular range and farther than door)
             if(point_in_angular_range and p.distance2d >= dist_to_door)
@@ -119,6 +158,6 @@ RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoi
             if (i==doors.size() -1)
                 filtered.emplace_back(p);
         }
-    }
+    }*/
     return filtered;
 }

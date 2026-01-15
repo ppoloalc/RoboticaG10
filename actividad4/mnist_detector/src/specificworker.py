@@ -42,6 +42,10 @@ class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, configData, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map, configData)
         self.Period = configData["Period"]["Compute"]
+        ## CARGAMOS EL MODELO:
+        self.model = torch.jit.load("../my_network.pt")
+        self.model.eval()
+
         if startup_check:
             self.startup_check()
         else:
@@ -169,10 +173,61 @@ class SpecificWorker(GenericWorker):
     #
     def MNIST_getNumber(self):
 
-        #
+        # 0. Verificaciones previas
+        if self.model is None:
+            print("Model not loaded.")
+            return -1
+
+        try:
+            # 1. Obtener imagen actual desde el proxy
+            # Usamos getROI(-1...) para obtener la imagen completa
+            image_data = self.camera360rgb_proxy.getROI(-1, -1, -1, -1, -1, -1)
+            color = np.frombuffer(image_data.image, dtype=np.uint8).reshape(image_data.height, image_data.width, 3)
+
+            # 2. Detectar región candidata (ROI)
+            rect = self.detect_frame(color)
+
+            if rect is None:
+                # No se encontró ningún candidato a número
+                return -1
+
+            x1, y1, x2, y2 = rect
+            roi = color[y1:y2, x1:x2]
+
+            # 3. Preprocesamiento para la Red Neuronal
+            # Convertir a escala de grises
+            gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+
+            # Redimensionar a 28x28 (tamaño estándar MNIST)
+            resized = cv2.resize(gray_roi, (28, 28), interpolation=cv2.INTER_AREA)
+
+            # Normalizar (0-1) y convertir a Tensor
+            # La entrada debe ser Float32
+            img_tensor = torch.from_numpy(resized).float() / 255.0
+
+            # Añadir dimensiones para batch y canales: [1, 1, 28, 28]
+            img_tensor = img_tensor.unsqueeze(0).unsqueeze(0)
+
+            # 4. Inferencia (Forward pass)
+            with torch.no_grad():
+                predictions = self.model(img_tensor)
+
+                # Obtener el índice con mayor probabilidad
+                predicted_digit = torch.argmax(predictions, dim=1).item()
+
+                # Opcional: Imprimir confianza para depurar
+                # probs = torch.nn.functional.softmax(predictions, dim=1)
+                # print(f"Detected: {predicted_digit} with conf: {probs.max().item():.2f}")
+
+            output = predicted_digit
+
+        except Exception as e:
+            print(f"Error in MNIST_getNumber: {e}")
+            return -1
+
         # call DNN and return detection result
-        #
-        return
+
+        return output
     # ===================================================================
     # ===================================================================
 

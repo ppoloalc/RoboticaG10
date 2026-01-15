@@ -537,8 +537,9 @@ SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners, const RoboCo
 //////////////////////////////////////////////////////////////////
    // check for colour patch in image
    /////////////////////////////////////////////////////////////////
-const auto &[success, room_index, left_right] = image_processor.check_colour_patch_in_image(camera360rgb_proxy, this->label_img);
-   if (success)
+//const auto &[success, room_index, left_right] = image_processor.check_colour_patch_in_image(camera360rgb_proxy, this->label_img);
+	const auto room_index = mnist_proxy->getNumber();
+	if (room_index != -1)
    {
    		current_room = room_index;
 		// Para hacer solo una vez el detectar el cuadrado rojo y verde:

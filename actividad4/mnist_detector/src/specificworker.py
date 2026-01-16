@@ -39,51 +39,18 @@ import torch.nn.functional as F
 sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
 
-class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        # 1st Conv Layer: 1 input channel (grayscale), 32 output channels, 3x3 kernel
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
-        # 2nd Conv Layer: 32 input channels, 64 output channels, 3x3 kernel
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        # Pooling layer
-        self.pool = nn.MaxPool2d(2, 2)
-        # Fully Connected Layers
-        # Image reduces to 7x7 after two poolings (28->14->7)
-        self.fc1 = nn.Linear(64 * 7 * 7, 128)
-        self.fc2 = nn.Linear(128, 10) # Output layer (10 digits)
-
-    def forward(self, x):
-        # Conv1 -> Relu -> MaxPool
-        x = self.pool(F.relu(self.conv1(x)))
-        # Conv2 -> Relu -> MaxPool
-        x = self.pool(F.relu(self.conv2(x)))
-        # Flatten
-        x = x.view(-1, 64 * 7 * 7)
-        # FC Layers
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x
 
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, configData, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map, configData)
         self.Period = configData["Period"]["Compute"]
-        # 1. Inicializamos la variable por seguridad
-        self.model = None
-        # Cargar el modelo
-        try:
-            # map_location='cpu' es importante si entrenaste en GPU y ejecutas en CPU
-            self.model = torch.load("/home/usuario/RoboticaG10/actividad4/my_network.pt", map_location=torch.device('cpu'), weights_only=False)
-            self.model.eval()
-            print("Model loaded successfully")
-        except Exception as e:
-            print(f"Error loading model: {e}")
-
-
+        self.last_roi = None
+        self.color = None
         if startup_check:
             self.startup_check()
         else:
+            # camera
+            self.color = []
             started_camera = False
             while not started_camera:
                 try:
@@ -102,6 +69,13 @@ class SpecificWorker(GenericWorker):
                     traceback.print_exc()
                     print(e, "Trying again CAMERA...")
 
+            # Cargar modelo TorchScript
+            model_path = "/home/usuario/RoboticaG10/actividad4/my_network.pt"
+            self.model = torch.jit.load(model_path)
+            self.model.eval()
+            print("✅ TorchScript MNIST model loaded")
+
+            # timer
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
 
@@ -112,18 +86,20 @@ class SpecificWorker(GenericWorker):
     def compute(self):
 
         image = self.camera360rgb_proxy.getROI(-1, -1, -1, -1, -1, -1)
-        color = np.frombuffer(image.image, dtype=np.uint8).reshape(image.height, image.width, 3)
-        rect = self.detect_frame(color)
-        color_copy = color.copy()
+        self.color = np.frombuffer(image.image, dtype=np.uint8).reshape(image.height, image.width, 3)
+        # print(f"Resolución actual: {image.width}x{image.height}")
+        rect = self.detect_frame(self.color)
+        color_copy = self.color.copy()
         if rect is not None:
             x1, y1, x2, y2 = rect
+            self.last_roi = rect
             cv2.rectangle(color_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            roi = color[y1:y2, x1:x2]
-            #cv2.imshow("Detected ROI", roi)
+            roi = self.color[y1:y2, x1:x2]
+            # cv2.imshow("Detected ROI", roi)
+            digit = self.MNIST_getNumber()
+            # print("Número detectado:", digit)
         cv2.imshow("Camera360RGB", color_copy)
         cv2.waitKey(1)
-
-    ################################################################
 
     def detect_frame(self, color):
         color_copy = color.copy()
@@ -138,7 +114,6 @@ class SpecificWorker(GenericWorker):
         upper_red1 = np.array([10, 255, 255])
         lower_red2 = np.array([170, 150, 100])
         upper_red2 = np.array([180, 255, 255])
-
 
         # Crear máscara combinando ambos rangos
         mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
@@ -178,7 +153,7 @@ class SpecificWorker(GenericWorker):
         # Score basado en cantidad de pixeles rojos en la máscara
         for c in candidates:
             _, x, y, bw, bh = c
-            roi = mask[y:y+bh, x:x+bw]
+            roi = mask[y:y + bh, x:x + bw]
             red_pixels = cv2.countNonZero(roi)
             total_pixels = bw * bh
             red_ratio = red_pixels / total_pixels
@@ -210,7 +185,17 @@ class SpecificWorker(GenericWorker):
         test = ifaces.RoboCompCamera360RGB.TImage()
         QTimer.singleShot(200, QApplication.instance().quit)
 
+    def crop_margin(self, img, margin_ratio):
+        """
+        Recorta un margen proporcional alrededor de la imagen.
+        margin_ratio: porcentaje de ancho/alto a recortar (0.1 = 10%)
+        """
+        h, w = img.shape[:2]
+        x_margin = int(w * margin_ratio)
+        y_margin = int(h * margin_ratio)
 
+        cropped = img[y_margin:h - y_margin, x_margin:w - x_margin]
+        return cropped
 
     # =============== Methods the component implements ==================
     # ===================================================================
@@ -219,68 +204,81 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of getNumber method from MNIST interface
     #
     def MNIST_getNumber(self):
-
-        # 0. Verificaciones previas
-        if self.model is None:
-            print("Model not loaded.")
-            return -1
-
         try:
-            # 1. Obtener imagen actual desde el proxy
-            # Usamos getROI(-1...) para obtener la imagen completa
-            image_data = self.camera360rgb_proxy.getROI(-1, -1, -1, -1, -1, -1)
-            color = np.frombuffer(image_data.image, dtype=np.uint8).reshape(image_data.height, image_data.width, 3)
-
-            # 2. Detectar región candidata (ROI)
-            rect = self.detect_frame(color)
-
-            if rect is None:
-                # No se encontró ningún candidato a número
+            if self.last_roi is None or self.color is None:
                 return -1
 
-            x1, y1, x2, y2 = rect
-            roi = color[y1:y2, x1:x2]
+            x1, y1, x2, y2 = self.last_roi
+            roi = self.color[y1:y2, x1:x2]
+            roi = self.crop_margin(roi, 0.15)
+            center_x = (x1 + x2) // 2
+            center_y = (y1 + y2) // 2
 
-            centro_x = (x1 + x2) // 2
+            angle = math.atan2(center_x, center_y)
+            # print(angle)
 
-            # 3. Preprocesamiento para la Red Neuronal
-            # Convertir a escala de grises
-            gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            # Pintamos (para la prueba)
+            # color_copy = self.color.copy()
+            # Dibujar un punto (círculo pequeño relleno) en el centro calculado
+            # cv2.circle(imagen, (x, y), radio, color_bgr, grosor)
+            # cv2.circle(color_copy, (int(center_x), int(center_y)), 5, (0, 0, 255), -1)
 
-            # Redimensionar a 28x28 (tamaño estándar MNIST)
-            resized = cv2.resize(gray_roi, (28, 28), interpolation=cv2.INTER_AREA)
+            # Opcional: Dibujar una cruz para mayor precisión
+            # cv2.drawMarker(color_copy, (int(center_x), int(center_y)), (0, 0, 255),
+            # markerType=(cv2.MARKER_CROSS, markerSize=20, thickness=2)
 
-            # Normalizar (0-1) y convertir a Tensor
-            # La entrada debe ser Float32
-            img_tensor = torch.from_numpy(resized).float() / 255.0
+            # cv2.imshow("Camera360RGB", color_copy)
+            # cv2.waitKey(1)
 
-            # Añadir dimensiones para batch y canales: [1, 1, 28, 28]
-            img_tensor = img_tensor.unsqueeze(0).unsqueeze(0)
+            # 1. Escala de grises
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
 
-            # 4. Inferencia (Forward pass)
+            # 2. Binarización SUAVE (no agresiva)
+            _, bw = cv2.threshold(
+                gray, 0, 255,
+                cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+            )
+
+            # 3. Bounding box del dígito
+            coords = cv2.findNonZero(bw)
+            if coords is None or len(coords) < 30:
+                return -1
+
+            x, y, w, h = cv2.boundingRect(coords)
+            digit = bw[y:y + h, x:x + w]
+
+            # 4. Padding tipo MNIST (moderado)
+            side = int(max(w, h) * 1.25)
+            canvas = np.zeros((side, side), dtype=np.uint8)
+
+            x_offset = (side - w) // 2
+            y_offset = (side - h) // 2
+            canvas[y_offset:y_offset + h, x_offset:x_offset + w] = digit
+
+            # 5. Resize final
+            mnist_img = cv2.resize(canvas, (28, 28))
+
+            # 6. EXACTAMENTE como ToTensor()
+            mnist_img = mnist_img.astype(np.float32) / 255.0
+
+            # 7. Tensor [1,1,28,28]
+            input_tensor = torch.from_numpy(mnist_img).unsqueeze(0).unsqueeze(0)
+
             with torch.no_grad():
-                predictions = self.model(img_tensor)
+                output = self.model(input_tensor)
+                pred = output.argmax(1).item()
 
-                # Obtener el índice con mayor probabilidad
-                predicted_digit = torch.argmax(predictions, dim=1).item()
+            # DEBUG visual
+            cv2.imshow("MNIST input", mnist_img)
+            cv2.waitKey(1)
 
-                # Opcional: Imprimir confianza para depurar
-                # probs = torch.nn.functional.softmax(predictions, dim=1)
-                # print(f"Detected: {predicted_digit} with conf: {probs.max().item():.2f}")
-
-            res = ifaces.RoboCompMNIST.MNistResult(label = predicted_digit, centrox = centro_x)
-
-            return res
+            # console.print(f"🧠 Predicted digit: {pred}")
+            return ifaces.RoboCompMNIST.MNistResult(label = int(pred), centrox = int(center_x))
 
         except Exception as e:
-            print(f"Error in MNIST_getNumber: {e}")
-            res = ifaces.RoboCompMNIST.MNistResult(label = -1, centrox = -1)
-            #res.label = -1
-            #res.centrox = -1
-            return res
-
-        # call DNN and return detection result
-
+            console.print("❌ Error in MNIST_getNumber:", e)
+            traceback.print_exc()
+            return ifaces.RoboCompMNIST.MNistResult(label = -1, centrox = -1)
 
     # ===================================================================
     # ===================================================================

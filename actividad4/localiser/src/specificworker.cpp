@@ -370,7 +370,7 @@ SpecificWorker::RetVal SpecificWorker::cross_door(const RoboCompLidar3D::TPoints
 
 		first_time = false;
 		start = std::chrono::high_resolution_clock::now();
-		current_room = (current_room + 1) % 2; // Va cambiando el índice de la habitación
+		//current_room = (current_room + 1) % 2; // Va cambiando el índice de la habitación
 		viewer_room->scene.removeItem(hab);
 		hab = viewer_room->scene.addRect(nominal_rooms[current_room].rect(), QPen(Qt::black, 30)); // Para pintar la habitación nueva al cruzar la puerta
 
@@ -381,7 +381,7 @@ SpecificWorker::RetVal SpecificWorker::cross_door(const RoboCompLidar3D::TPoints
        const auto elapsed = std::chrono::high_resolution_clock::now() - start;
        //qInfo() << __FUNCTION__ << "Elapsed time crossing door: "
        //         << std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() << " ms";
-       if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > 5000)
+       if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > 6000)
        {
        		qInfo() << "if 1";
            first_time = true;
@@ -478,8 +478,7 @@ SpecificWorker::RetVal SpecificWorker::localise(const RoboCompLidar3D::TPoints &
 		// If close enough to center -> stop and move to TURN
 		if (center.value().norm() < params.RELOCAL_CENTER_EPS )
 		{
-			if (zero_detected && one_detected)
-				return {STATE::GOTO_DOOR, 0.0f, 0.0f};
+
 			return {STATE::TURN, 0.0f, 0.0f};
 		}
 
@@ -504,7 +503,6 @@ SpecificWorker::RetVal SpecificWorker::goto_room_center(const RoboCompLidar3D::T
 	if (center.value().norm() < 300.f)
 	{
 		if (zero_detected && one_detected)
-
 			return {STATE::GOTO_DOOR, 0.f, 0.f};
 		return {STATE::TURN, 0.f, 0.f};
 	}
@@ -543,7 +541,7 @@ SpecificWorker::RetVal SpecificWorker::turn(const Corners& corners, const RoboCo
 
 	qInfo() << resultado.label << "---" << resultado.centrox;
 
-	if (resultado.label != -1 && resultado.label < 2 && resultado.centrox < 850)
+	if (resultado.label != -1 && resultado.label < 2 && resultado.centrox < 850 && resultado.centrox > 600)
    {
    		current_room = resultado.label;
 		// Para hacer solo una vez el detectar el cuadrado con numero
@@ -598,7 +596,8 @@ if (door_crossing.valid)
            door_crossing.valid = false;
        }
        localised = true;
-       return {STATE::GOTO_DOOR, 0.0f, 0.0f};  // SUCCESS
+       return {STATE::IDLE, 0.0f, 0.0f};  // SUCCESS
+		//return {STATE::GOTO_DOOR, 0.0f, 0.0f};  // SUCCESS
    }
    // continue turning
    return {STATE::TURN, 0.0f, params.RELOCAL_ROT_SPEED};

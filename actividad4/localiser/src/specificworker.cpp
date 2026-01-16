@@ -370,7 +370,7 @@ SpecificWorker::RetVal SpecificWorker::cross_door(const RoboCompLidar3D::TPoints
 
 		first_time = false;
 		start = std::chrono::high_resolution_clock::now();
-		//current_room = (current_room + 1) % 2; // Va cambiando el índice de la habitación
+		current_room = (current_room + 1) % 2; // Va cambiando el índice de la habitación
 		viewer_room->scene.removeItem(hab);
 		hab = viewer_room->scene.addRect(nominal_rooms[current_room].rect(), QPen(Qt::black, 30)); // Para pintar la habitación nueva al cruzar la puerta
 
@@ -432,30 +432,6 @@ SpecificWorker::RetVal SpecificWorker::cross_door(const RoboCompLidar3D::TPoints
            return {STATE::CROSS_DOOR, 500.f, 0.f};
    }
 
-
-	// static int cont = 0;
-	//
-	// if (cont == 30)
-	// {
-	// 	room_index = (room_index + 1) % 2;
-	// 	if (room_index % 2 == 0){
-	// 		rojo = true;
-	// 	}
-	// 	else
-	// 	{
-	// 		rojo = false;
-	// 	}
-	// 	localised = false;
-	// 	cont = 0;
-	// 	viewer_room->scene.removeItem(hab);
-	//
-	// 	hab = viewer_room->scene.addRect(nominal_rooms[room_index].rect(), QPen(Qt::black, 30));
-	//
-	//
-	// 	return {STATE::GOTO_ROOM_CENTER, 0.f, 0.f};
-	// }
-	// cont ++;
-	// return {STATE::CROSS_DOOR, 500.f, 0.f};
 }
 
 SpecificWorker::RetVal SpecificWorker::localise(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene)
